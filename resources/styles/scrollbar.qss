@@ -1,0 +1,16 @@
+QWidget {
+                background-color: white;
+}
+
+QScrollBar:vertical {
+                border: none;
+                background: #f0f0f0;
+                width: 12px;
+                border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+                background-color: #a9a9a9;
+                border-radius: 6px;
+                min-height: 20px;
+}

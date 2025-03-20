@@ -14,13 +14,15 @@ class SideMenu(QWidget):
         self.menu_layout.setObjectName("side_menu_layout")
         self.menu_layout.setContentsMargins(0, 0, 0, 0)
         self.menu_layout.setSpacing(10)
+        self.buttons = {}
 
-        self.profiles_button = SideMenu.__create_menu_btn("Profiles")
+        self.profiles_button = self.__create_menu_btn("Profiles", 0)
+        self.profiles_button.setProperty("index", 0)
         # menu_button1.setIcon(QIcon("../icon.png"))
         # menu_button1.setIconSize(menu_button1.sizeHint())
 
-        self.add_profile_button = SideMenu.__create_menu_btn("+Profile")
-        self.menu_button3 = SideMenu.__create_menu_btn("Меню 3")
+        self.add_profile_button = self.__create_menu_btn("+Profile", 1)
+        self.menu_button3 = self.__create_menu_btn("Меню 3", 2)
 
         self.profiles_button.setCursor(Qt.PointingHandCursor)
         self.add_profile_button.setCursor(Qt.PointingHandCursor)
@@ -48,9 +50,12 @@ class SideMenu(QWidget):
         self.menu_widget.setFixedWidth(max_menu_width)
         super().resizeEvent(event)
 
-    @staticmethod
-    def __create_menu_btn(name):
+    def __create_menu_btn(self, name, index):
         btn = QPushButton(name)
         btn.setObjectName("menu-btn")
+        btn.setCheckable(True)
+        btn.setProperty("index", index)
+        btn.setChecked(False)
+        self.buttons[btn] = index
         return btn
 

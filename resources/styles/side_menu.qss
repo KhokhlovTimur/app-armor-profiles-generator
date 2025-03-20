@@ -1,0 +1,28 @@
+QPushButton#menu-btn {
+    color: black;
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 16px;
+    text-align: left;
+    margin: 3px;
+}
+
+QPushButton#menu-btn:hover {
+    background-color: #a9a9a9; /* Тускло-серый цвет при наведении */
+}
+
+QPushButton#menu-btn:pressed {
+    background-color: #808080; /* Еще более тусклый серый цвет при нажатии */
+}
+
+QPushButton#menu-btn:checked {
+    background-color: #dcdcdc; /* Цвет нажатой кнопки (визуально выбранной) */
+}
+#line {
+        background-color: black;
+        width: 2px;
+}
+
+#side_menu_layout {
+        background-color: light-grey;
+}

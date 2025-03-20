@@ -1,7 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton, QFileDialog, QMessageBox, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QPushButton, QFileDialog, QMessageBox, QHBoxLayout, QSplitter
+from PyQt5.QtGui import QFont, QPainter, QColor
+from PyQt5.QtCore import Qt, QPoint
 
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from src.app_armor.app_armor_parser import check_profile_correctness
+
+profile_template_path = "../../resources/profile_template.txt"
 
 
 class AddProfilePage(QWidget):
@@ -11,105 +14,132 @@ class AddProfilePage(QWidget):
         self.setWindowTitle("Добавление нового профиля")
         self.setGeometry(200, 200, 400, 300)
 
-        # Создаем вертикальный макет
         layout = QVBoxLayout()
 
-        # Создаем текстовое поле для шаблона
-        self.template_edit = QTextEdit(self)
-        self.template_edit.setPlainText(self.get_default_template())  # Устанавливаем шаблон по умолчанию
-        self.template_edit.setPlaceholderText("Введите или отредактируйте шаблон...")  # Подсказка для пользователя
-        layout.addWidget(self.template_edit)
+        splitter = QSplitter(Qt.Horizontal)
 
-        # Создаем горизонтальный макет для кнопок
+        self.template_edit = QPlainTextEdit(self)
+        self.template_edit.setPlainText(self.get_default_template())
+        self.template_edit.setPlaceholderText("Введите или отредактируйте шаблон...")
+
+        self.line_number_area = LineNumberArea(self.template_edit)
+
+        splitter.addWidget(self.line_number_area)
+        splitter.addWidget(self.template_edit)
+
+        layout.addWidget(splitter)
+
         font_layout = QHBoxLayout()
 
-        # Кнопка для увеличения шрифта
         self.increase_font_button = QPushButton("Увеличить шрифт", self)
         self.increase_font_button.clicked.connect(self.increase_font_size)
         font_layout.addWidget(self.increase_font_button)
 
-        # Кнопка для уменьшения шрифта
         self.decrease_font_button = QPushButton("Уменьшить шрифт", self)
         self.decrease_font_button.clicked.connect(self.decrease_font_size)
         font_layout.addWidget(self.decrease_font_button)
 
-        # Добавляем горизонтальный макет с кнопками в основной вертикальный макет
         layout.addLayout(font_layout)
 
         self.select_file_button = QPushButton("Выбрать файл", self)
         self.select_file_button.clicked.connect(self.select_file)
         layout.addWidget(self.select_file_button)
 
-        # Кнопка для сохранения профиля
         self.save_button = QPushButton("Сохранить профиль", self)
         self.save_button.clicked.connect(self.save_profile)
         layout.addWidget(self.save_button)
 
-        # Устанавливаем макет в окно
         self.setLayout(layout)
 
+        # Подключаем сигнал для обновления номеров строк при изменении текста
+        self.template_edit.textChanged.connect(self.update_line_numbers)
+
     def get_default_template(self):
-        # Шаблон для текстового поля, как в вашем примере
-        return '''abi <abi/4.0>,
-    include <tunables/global>
-
-    profile Discord /usr/share/discord/Discord flags=(unconfined) {
-      userns,
-
-      # Site-specific additions and overrides. See local/README for details.
-      include if exists <local/Discord>
-    }
-    '''
+        return ''.join(open(profile_template_path).readlines())
 
     def select_file(self):
-        pass
-        # Открываем диалог для выбора пути и имени файла
-        # file_dialog = QFileDialog(self)
-        # file_dialog.setFileMode(QFileDialog.AnyFile)  # Открываем для выбора файла
-        # file_dialog.setAcceptMode(QFileDialog.AnyFile)  # Режим для сохранения файла
-        # file_dialog.setNameFilter("Все файлы (*.*)")  # Фильтр для всех файлов
-        #
-        # # Если пользователь выбрал файл
-        # if file_dialog.exec_():
-        #     self.file_path = file_dialog.selectedFiles()[0]  # Получаем путь к выбранному файлу
-        #     print(f"Выбран путь и файл: {self.file_path}")
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        file_dialog.setAcceptMode(QFileDialog.AcceptOpen)
+        file_dialog.setNameFilter("Все файлы (*.*)")
+        file_dialog.setViewMode(QFileDialog.List)
 
+        if file_dialog.exec_():
+            self.file_path = file_dialog.selectedFiles()[0]
+            base = self.get_default_template()
+            new = base.replace("${profile_name}", self.file_path.split('/')[-1]).replace("${profile_path}",
+                                                                                         self.file_path)
+            self.template_edit.setPlainText(new)
+            print(f"Выбран путь и файл: {self.file_path}")
 
     def increase_font_size(self):
-        # Получаем текущий шрифт и увеличиваем его размер
         current_font = self.template_edit.font()
-        current_font.setPointSize(current_font.pointSize() + 2)  # Увеличиваем размер на 2
+        current_font.setPointSize(current_font.pointSize() + 2)
         self.template_edit.setFont(current_font)
+
+        # Увеличиваем размер шрифта для номеров строк
+        self.line_number_area.setFont(current_font)
+        self.line_number_area.update()
 
     def decrease_font_size(self):
-        # Получаем текущий шрифт и уменьшаем его размер
         current_font = self.template_edit.font()
-        current_font.setPointSize(current_font.pointSize() - 2)  # Уменьшаем размер на 2
+        current_font.setPointSize(current_font.pointSize() - 2)
         self.template_edit.setFont(current_font)
 
+        # Уменьшаем размер шрифта для номеров строк
+        self.line_number_area.setFont(current_font)
+        self.line_number_area.update()
+
     def save_profile(self):
-        # Получаем текст из текстового поля
         profile_data = self.template_edit.toPlainText()
-
-        # Здесь можно добавить логику для сохранения профиля
-        if profile_data.strip():  # Проверяем, что текст не пустой
-            # Пример сохранения в файл (можно адаптировать под вашу задачу)
-            with open("new_profile.txt", "w") as f:
-                f.write(profile_data)
-            QMessageBox.information(self, "Успех", "Профиль успешно сохранен!")
+        try_save = check_profile_correctness(profile_data)
+        if try_save.returncode == 0:
+            QMessageBox.information(self, "Успех", f"Профиль успешно сохранен и загружен!")
+            self.template_edit.setPlainText(self.get_default_template())
         else:
-            QMessageBox.warning(self, "Ошибка", "Шаблон не может быть пустым!")
+            error_message = try_save.stderr if try_save.stderr else "Неизвестная ошибка при проверке профиля."
+            QMessageBox.warning(self, "Ошибка", f"Ошибка в профиле:\n{error_message}")
+
+    def start_create_profile(self):
+        # self.select_file()
+        pass
+
+    def update_line_numbers(self):
+        self.line_number_area.updateArea()
 
 
-def save_profile(self):
-        # Получаем текст из текстового поля
-        profile_data = self.template_edit.toPlainText()
+class LineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.editor = editor
+        self.setFont(QFont("Courier", 10))
+        self.setStyleSheet("background: lightgray;")
+        self.setFixedWidth(40)
 
-        # Здесь можно добавить логику для сохранения профиля
-        if profile_data.strip():  # Проверяем, что текст не пустой
-            # Пример сохранения в файл (можно адаптировать под вашу задачу)
-            with open("new_profile.txt", "w") as f:
-                f.write(profile_data)
-            QMessageBox.information(self, "Успех", "Профиль успешно сохранен!")
-        else:
-            QMessageBox.warning(self, "Ошибка", "Шаблон не может быть пустым!")
+        self.editor.verticalScrollBar().valueChanged.connect(self.updateArea)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setPen(QColor(0, 0, 0))
+
+        block = self.editor.document().firstBlock()
+        block_number = 1
+
+        block_top = self.editor.blockBoundingGeometry(block).translated(self.editor.contentOffset()).top()
+
+        scroll_top = self.editor.verticalScrollBar().value()
+        scroll_bottom = scroll_top + self.editor.viewport().height()
+
+        while block.isValid():
+            block_height = self.editor.blockBoundingRect(block).height()
+            block_bottom = block_top + block_height
+
+            if block_top + block_height >= scroll_top and block_top <= scroll_bottom:
+                painter.drawText(QPoint(int(self.width() - 30), int(block_top + block_height / 2) + 4), str(block_number))
+
+            block = block.next()
+            block_top = self.editor.blockBoundingGeometry(block).translated(self.editor.contentOffset()).top()
+            block_number += 1
+
+    def updateArea(self):
+        self.update()
