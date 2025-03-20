@@ -4,7 +4,6 @@ from src.app_armor.data_holder import DataHolder
 from src.pages.add_profile_page import AddProfilePage
 from src.pages.profiles_page import ProfilesPage
 from src.pages.side_menu import SideMenu
-from src.utils.file_util import load_stylesheet
 
 
 class MainWindow(QWidget):
