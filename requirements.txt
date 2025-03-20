@@ -1,0 +1,7 @@
+pillow==10.2.0
+ptyprocess==0.7.0
+PyQt5==5.15.10
+PyQt5-sip==12.13.0
+pytz==2024.1
+pyxdg==0.28
+PyYAML==6.0.1

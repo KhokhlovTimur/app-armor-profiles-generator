@@ -1,0 +1,25 @@
+QPushButton#menu-btn {
+        color: black;
+        border-radius: 20px;
+        padding: 8px 20px;
+        font-size: 16px;
+        text-align: left;
+        margin: 3px;
+}
+
+QPushButton#menu-btn:hover {
+        background-color: #514d5c;
+}
+
+QPushButton#menu-btn:pressed {
+        background-color: #388E3C;
+}
+
+#line {
+        background-color: black;
+        width: 2px;
+}
+
+#side_menu_layout {
+        background-color: light-grey;
+}
