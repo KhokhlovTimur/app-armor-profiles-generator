@@ -1,145 +1,81 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QPushButton, QFileDialog, QMessageBox, QHBoxLayout, QSplitter
-from PyQt5.QtGui import QFont, QPainter, QColor
-from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayout, QSplitter, QWidget
 
-from src.app_armor.app_armor_parser import check_profile_correctness
-
-profile_template_path = "../../resources/profile_template.txt"
+from src.pages.profile_page_template import ProfilePageTemplate, LineNumberArea, ZoomableTextEdit
+from src.util.file_util import load_stylesheet
 
 
-class AddProfilePage(QWidget):
+class AddProfilePage(ProfilePageTemplate):
+    profile_template_path = "../../resources/profile_template.txt"
+    __profile_styles = "add_profile_page.qss"
+
     def __init__(self):
         super().__init__()
-
-        self.setWindowTitle("Добавление нового профиля")
+        self.setWindowTitle("New Profile")
         self.setGeometry(200, 200, 400, 300)
 
         layout = QVBoxLayout()
 
         splitter = QSplitter(Qt.Horizontal)
 
-        self.template_edit = QPlainTextEdit(self)
+        self.template_edit = QPlainTextEdit()
+        self.template_edit.setObjectName("edit_text_area")
+        load_stylesheet(self.__profile_styles, self.template_edit)
         self.template_edit.setPlainText(self.get_default_template())
-        self.template_edit.setPlaceholderText("Введите или отредактируйте шаблон...")
+        self.template_edit.setPlaceholderText("Enter or edit template...")
 
         self.line_number_area = LineNumberArea(self.template_edit)
 
         splitter.addWidget(self.line_number_area)
         splitter.addWidget(self.template_edit)
 
-        layout.addWidget(splitter)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
 
-        font_layout = QHBoxLayout()
+        layout.addWidget(splitter, stretch=1)
 
-        self.increase_font_button = QPushButton("Увеличить шрифт", self)
-        self.increase_font_button.clicked.connect(self.increase_font_size)
-        font_layout.addWidget(self.increase_font_button)
+        self.buttons_layout = QHBoxLayout()
+        self._add_buttons()
+        self.buttons_container: QWidget = QWidget()
+        self.buttons_container.setLayout(self.buttons_layout)
 
-        self.decrease_font_button = QPushButton("Уменьшить шрифт", self)
-        self.decrease_font_button.clicked.connect(self.decrease_font_size)
-        font_layout.addWidget(self.decrease_font_button)
+        load_stylesheet("buttons.qss", self.buttons_container)
 
-        layout.addLayout(font_layout)
-
-        self.select_file_button = QPushButton("Выбрать файл", self)
-        self.select_file_button.clicked.connect(self.select_file)
-        layout.addWidget(self.select_file_button)
-
-        self.save_button = QPushButton("Сохранить профиль", self)
-        self.save_button.clicked.connect(self.save_profile)
-        layout.addWidget(self.save_button)
+        layout.addStretch()
+        layout.addWidget(self.buttons_container)
 
         self.setLayout(layout)
 
-        # Подключаем сигнал для обновления номеров строк при изменении текста
         self.template_edit.textChanged.connect(self.update_line_numbers)
 
-    def get_default_template(self):
-        return ''.join(open(profile_template_path).readlines())
-
     def select_file(self):
-        file_dialog = QFileDialog(self)
-        file_dialog.setFileMode(QFileDialog.ExistingFile)
-        file_dialog.setAcceptMode(QFileDialog.AcceptOpen)
-        file_dialog.setNameFilter("Все файлы (*.*)")
-        file_dialog.setViewMode(QFileDialog.List)
-
-        if file_dialog.exec_():
-            self.file_path = file_dialog.selectedFiles()[0]
+        path = super().select_file()
+        if path is not None:
             base = self.get_default_template()
             new = base.replace("${profile_name}", self.file_path.split('/')[-1]).replace("${profile_path}",
-                                                                                         self.file_path)
+                                                                                 self.file_path)
             self.template_edit.setPlainText(new)
-            print(f"Выбран путь и файл: {self.file_path}")
 
-    def increase_font_size(self):
-        current_font = self.template_edit.font()
-        current_font.setPointSize(current_font.pointSize() + 2)
-        self.template_edit.setFont(current_font)
+    def get_default_template(self):
+        return ''.join(open(AddProfilePage.profile_template_path).readlines())
 
-        # Увеличиваем размер шрифта для номеров строк
-        self.line_number_area.setFont(current_font)
-        self.line_number_area.update()
+    def _add_buttons(self):
+        self.increase_font_button = QPushButton("Increase font size", self)
+        self.increase_font_button.clicked.connect(self.increase_font_size)
+        self.buttons_layout.addWidget(self.increase_font_button)
 
-    def decrease_font_size(self):
-        current_font = self.template_edit.font()
-        current_font.setPointSize(current_font.pointSize() - 2)
-        self.template_edit.setFont(current_font)
+        self.decrease_font_button = QPushButton("Decrease font size", self)
+        self.decrease_font_button.clicked.connect(self.decrease_font_size)
+        self.buttons_layout.addWidget(self.decrease_font_button)
 
-        # Уменьшаем размер шрифта для номеров строк
-        self.line_number_area.setFont(current_font)
-        self.line_number_area.update()
+        self.select_file_button = QPushButton("Choose file for profile", self)
+        self.select_file_button.clicked.connect(self.select_file)
+        self.buttons_layout.addWidget(self.select_file_button)
 
-    def save_profile(self):
-        profile_data = self.template_edit.toPlainText()
-        try_save = check_profile_correctness(profile_data)
-        if try_save.returncode == 0:
-            QMessageBox.information(self, "Успех", f"Профиль успешно сохранен и загружен!")
-            self.template_edit.setPlainText(self.get_default_template())
-        else:
-            error_message = try_save.stderr if try_save.stderr else "Неизвестная ошибка при проверке профиля."
-            QMessageBox.warning(self, "Ошибка", f"Ошибка в профиле:\n{error_message}")
+        self.import_file_button = QPushButton("Import", self)
+        self.import_file_button.clicked.connect(self.import_profile)
+        self.buttons_layout.addWidget(self.import_file_button)
 
-    def start_create_profile(self):
-        # self.select_file()
-        pass
-
-    def update_line_numbers(self):
-        self.line_number_area.updateArea()
-
-
-class LineNumberArea(QWidget):
-    def __init__(self, editor):
-        super().__init__(editor)
-        self.editor = editor
-        self.setFont(QFont("Courier", 10))
-        self.setStyleSheet("background: lightgray;")
-        self.setFixedWidth(40)
-
-        self.editor.verticalScrollBar().valueChanged.connect(self.updateArea)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setPen(QColor(0, 0, 0))
-
-        block = self.editor.document().firstBlock()
-        block_number = 1
-
-        block_top = self.editor.blockBoundingGeometry(block).translated(self.editor.contentOffset()).top()
-
-        scroll_top = self.editor.verticalScrollBar().value()
-        scroll_bottom = scroll_top + self.editor.viewport().height()
-
-        while block.isValid():
-            block_height = self.editor.blockBoundingRect(block).height()
-            block_bottom = block_top + block_height
-
-            if block_top + block_height >= scroll_top and block_top <= scroll_bottom:
-                painter.drawText(QPoint(int(self.width() - 30), int(block_top + block_height / 2) + 4), str(block_number))
-
-            block = block.next()
-            block_top = self.editor.blockBoundingGeometry(block).translated(self.editor.contentOffset()).top()
-            block_number += 1
-
-    def updateArea(self):
-        self.update()
+        self.save_button = QPushButton("Save", self)
+        self.save_button.clicked.connect(self.save_profile)
+        self.buttons_layout.addWidget(self.save_button)

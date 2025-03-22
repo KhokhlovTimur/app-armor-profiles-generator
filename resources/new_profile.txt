@@ -1,7 +1,7 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile untitled.ui /home/timur/Документы/untitled.ui flags=(unconfined) {
+profile test.py /home/timur/Документы/test/test.py flags=(complain) {
     deny @{HOME}/Documents/ rw,
     deny @{HOME}/Private/ rw,
     deny @{HOME}/Pictures/ rw,

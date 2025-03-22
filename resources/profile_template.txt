@@ -1,7 +1,7 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile ${profile_name} ${profile_path} flags=(unconfined) {
+profile ${profile_name} ${profile_path} flags=(complain) {
     deny @{HOME}/Documents/ rw,
     deny @{HOME}/Private/ rw,
     deny @{HOME}/Pictures/ rw,

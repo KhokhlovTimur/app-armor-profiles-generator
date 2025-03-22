@@ -1,6 +1,6 @@
 import subprocess
 
-from src.app_armor.data_holder import DataHolder
+from src.app_armor.credentials_holder import CredentialsHolder
 
 
 def run_command(command):
@@ -13,8 +13,8 @@ def run_command(command):
         else:
             return subprocess.run(
                 command,
-                input=f'{DataHolder().get_pswd()}\n',
+                input=f'{CredentialsHolder().get_pswd()}\n',
                 capture_output=True,
                 text=True)
-    except:
-        pass
+    except Exception as e:
+        return subprocess.CompletedProcess(args=command, returncode=1, stdout='', stderr=str(e))
