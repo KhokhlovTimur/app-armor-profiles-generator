@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from PyQt5.QtWidgets import QInputDialog, QLineEdit, QMessageBox
+from PyQt5.QtWidgets import QInputDialog, QLineEdit, QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton
 
 
 class CredentialsHolder:
@@ -23,7 +23,8 @@ class CredentialsHolder:
         if CredentialsHolder.__pswd is not None:
             return CredentialsHolder.__pswd
         while True:
-            password, ok = QInputDialog.getText(None, "Enter sudo password", "Password:", QLineEdit.Password)
+            dialog = PasswordDialog()
+            password, ok = dialog.get_password()
             if not ok or not password:
                 print("Пароль не был введён. Завершение.")
                 sys.exit(1)
@@ -44,3 +45,34 @@ class CredentialsHolder:
                 msg_box.setText("Incorrect password. Try again.")
                 msg_box.setWindowTitle("Error")
                 msg_box.exec_()
+
+class PasswordDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Sudo password")
+        self.setMinimumWidth(400)
+
+        self.password = None
+
+        layout = QVBoxLayout()
+
+        label = QLabel("Password:")
+        label.setStyleSheet("font-size: 16px;")
+        layout.addWidget(label)
+
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+        self.password_input.setStyleSheet("font-size: 16px; padding: 6px;")
+        layout.addWidget(self.password_input)
+
+        self.ok_button = QPushButton("OK")
+        self.ok_button.setStyleSheet("font-size: 14px; padding: 6px;")
+        self.ok_button.clicked.connect(self.accept)
+        layout.addWidget(self.ok_button)
+
+        self.setLayout(layout)
+
+    def get_password(self):
+        if self.exec_() == QDialog.Accepted:
+            return self.password_input.text(), True
+        return "", False

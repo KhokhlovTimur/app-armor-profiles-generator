@@ -1,9 +1,12 @@
+import os
+import sys
+
 from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QStackedWidget
 
 from src.app_armor.credentials_holder import CredentialsHolder
-from src.pages.add_profile_page import AddProfilePage
-from src.pages.data_holder import PagesHolder
-from src.pages.profiles_page import ProfilesPage
+from src.pages.add_profile import AddProfilePage
+from src.pages.page_holder import PagesHolder
+from src.pages.profiles import ProfilesPage
 from src.pages.side_menu import SideMenu
 
 

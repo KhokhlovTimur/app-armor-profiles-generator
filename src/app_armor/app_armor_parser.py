@@ -3,6 +3,7 @@ import re
 import subprocess
 import tempfile
 
+from src.app_armor.app_armor_manager import AppArmorManager
 from src.util.command_executor_util import run_command
 
 
@@ -13,7 +14,7 @@ def validate_profile(profile_string: str):
             temp_path = tmp.name
 
         result = run_command([
-            "sudo", "-S", "apparmor_parser", "-r", temp_path
+            "sudo", "-S", "apparmor_parser", "-K", '-T', temp_path
         ])
 
         os.remove(temp_path)
@@ -30,16 +31,19 @@ def save_and_add_profile(profile_string: str, profile_filename: str):
         with open(temp_profile_path, "w") as f:
             f.write(profile_string)
 
+        result = run_command([
+            "sudo", "-S", "apparmor_parser", "-a", temp_profile_path
+        ])
+
+        if result.returncode != 0:
+            return result
+
         copy_result = run_command([
             "sudo", "-S", "cp", temp_profile_path, filepath
         ])
 
         if copy_result.returncode != 0:
             return copy_result
-
-        result = run_command([
-            "sudo", "-S", "apparmor_parser", "-r", filepath
-        ])
 
         return result
     except Exception as e:
@@ -52,10 +56,10 @@ def filter_stderr(stderr: str) -> str:
     return stderr
 
 def validate_and_load_profile(profile_string: str, profile_filename: str):
-    validation_result = validate_profile(profile_string)
-    if validation_result.returncode != 0:
-        print(filter_stderr(validation_result.stderr))
-        return validation_result
+    # validation_result = validate_profile(profile_string)
+    # if validation_result.returncode != 0:
+    #     print(filter_stderr(validation_result.stderr))
+    #     return validation_result
 
     result = save_and_add_profile(profile_string, profile_filename)
     if result.returncode == 0:
@@ -66,25 +70,35 @@ def validate_and_load_profile(profile_string: str, profile_filename: str):
 
 def edit_profile(profile_string: str, profile_filename: str):
     try:
+        # validation_result = validate_profile(profile_string)
+        # if validation_result.returncode != 0:
+        #     print(filter_stderr(validation_result.stderr))
+        #     return validation_result
+
+
         filepath = f"/etc/apparmor.d/{profile_filename}"
 
         temp_profile_path = os.path.join(tempfile.gettempdir(), profile_filename)
         with open(temp_profile_path, "w") as f:
             f.write(profile_string)
 
+        parser_result = run_command([
+            "sudo", "-S", "apparmor_parser", "-r", temp_profile_path
+        ])
+
+        if parser_result.returncode != 0:
+            return parser_result
+
         copy_result = run_command([
             "sudo", "-S", "cp", temp_profile_path, filepath
         ])
-
         if copy_result.returncode != 0:
             return copy_result
 
-        reload_result = run_command([
-            "sudo", "-S", "apparmor_parser", "-r", filepath
-        ])
+        reload_result = AppArmorManager().reload_apparmor()
 
         return reload_result
 
     except Exception as e:
-        print(f"Ошибка при редактировании профиля: {e}")
+        print(f"Error editing profile: {e}")
         return subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr=str(e))

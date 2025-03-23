@@ -2,8 +2,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QFrame, QSpacerItem, QSizePolicy, QHBoxLayout
 from PyQt5.QtGui import QPixmap, QIcon
 
-from src.pages.add_profile_page import AddProfilePage
-from src.pages.data_holder import PagesHolder
+from src.pages.add_profile import AddProfilePage
+from src.pages.page_holder import PagesHolder
 from src.util.file_util import load_stylesheet
 from src.util.sys_util import close_app
 

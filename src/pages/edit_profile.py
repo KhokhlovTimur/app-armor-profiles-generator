@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import QPushButton
 
 from src.app_armor.app_armor_manager import AppArmorManager
-from src.pages.add_profile_page import AddProfilePage
-from src.pages.data_holder import PagesHolder
+from src.app_armor.app_armor_parser import edit_profile
+from src.pages.add_profile import AddProfilePage
+from src.pages.page_holder import PagesHolder
 
 
 class EditProfilePage(AddProfilePage):
@@ -18,9 +19,11 @@ class EditProfilePage(AddProfilePage):
         self.deleteLater()
 
     def save_profile(self):
-        super().save_profile()
-        PagesHolder().get_content_area().setCurrentWidget(self.parent)
-        self.deleteLater()
+        command = edit_profile(self.template_edit.toPlainText(), self.profile_data['name'])
+        self._check_profile(command)
+        if self.error_message is None:
+            PagesHolder().get_content_area().setCurrentWidget(self.parent)
+            self.deleteLater()
 
     def _add_buttons(self):
         self.increase_font_button = QPushButton("Increase font size", self)

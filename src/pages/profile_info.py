@@ -1,18 +1,19 @@
 from datetime import datetime, timedelta
 from urllib.request import DataHandler
 
+from PyQt5 import sip
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QFrame, QSizePolicy,
-    QTextEdit, QScrollArea, QGridLayout, QSpacerItem
+    QTextEdit, QScrollArea, QGridLayout, QSpacerItem, QComboBox
 )
 from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal
 
 from src.app_armor.app_armor_manager import AppArmorManager
-from src.pages.data_holder import PagesHolder
-from src.pages.edit_profile_page import EditProfilePage
+from src.pages.page_holder import PagesHolder
+from src.pages.edit_profile import EditProfilePage
 from src.util.command_executor_util import run_command
 from src.util.file_util import load_stylesheet
-from src.util.worker_pool import AppArmorWorker
+from src.util.worker import AppArmorWorker, TaskWatcher
 
 
 class ProfileInfoPage(QWidget):
@@ -30,23 +31,71 @@ class ProfileInfoPage(QWidget):
         wrapper_layout.setContentsMargins(20, 20, 20, 20)
         wrapper_layout.setSpacing(10)
 
+        title_bar = QHBoxLayout()
+        title_bar.setAlignment(Qt.AlignLeft)
+
         title_label = QLabel(self.profile_data['name'])
         title_label.setStyleSheet("font-size: 22px; font-weight: bold;")
-        wrapper_layout.addWidget(title_label, alignment=Qt.AlignTop)
+        title_bar.addWidget(title_label)
+        title_bar.addStretch()
+
+        self.mode_selector = QComboBox()
+        self.mode_selector.addItems(["enforce", "complain"])
+        self.mode_selector.setVisible(False)
+        self.mode_selector.setStyleSheet("""
+            QComboBox {
+                padding: 5px;
+                font-size: 13px;
+                border-radius: 5px;
+                border: 1px solid #ccc;
+                background-color: white;
+            }
+            QComboBox::drop-down {
+                width: 20px;
+            }
+        """)
+
+        self.apply_mode_btn = QPushButton("Apply")
+        self.apply_mode_btn.setObjectName("top_btn")
+        self.apply_mode_btn.setVisible(False)
+        self.apply_mode_btn.clicked.connect(self.apply_mode_change)
+
+        self.cancel_mode_btn = QPushButton("Cancel")
+        self.cancel_mode_btn.setObjectName("top_btn")
+        self.cancel_mode_btn.setVisible(False)
+        self.cancel_mode_btn.clicked.connect(self.cancel_mode_change)
+
+        self.change_mode_btn = QPushButton("Change Mode")
+        self.change_mode_btn.setObjectName("top_btn")
+        self.change_mode_btn.clicked.connect(self.show_mode_selector)
+
+        self.disable_btn = QPushButton("Enable Profile" if self.profile_data['disabled'] else "Disable Profile")
+        self.disable_btn.setObjectName("top_btn")
+        self.disable_btn.clicked.connect(self.disable_or_enable_profile)
+
+        for btn in [self.mode_selector, self.apply_mode_btn, self.cancel_mode_btn, self.change_mode_btn,
+                    self.disable_btn]:
+            load_stylesheet("buttons.qss", btn)
+            title_bar.addWidget(btn)
+
+        wrapper_layout.addLayout(title_bar)
 
         info_frame = QFrame()
-        info_layout = QVBoxLayout(info_frame)
-        info_layout.setAlignment(Qt.AlignTop)
-        info_frame.setStyleSheet("background: #f5f5f5; border-radius: 10px; padding: 10px;")
-        info_layout.setSpacing(5)
+        info_layout = QHBoxLayout(info_frame)
+        info_left = QVBoxLayout()
+        info_left.setAlignment(Qt.AlignTop)
 
         mode_label = QLabel(f"<b>Mode:</b> {self.profile_data['mode']}")
+        self.mode_label = mode_label
         path_label = QLabel(f"<b>Path:</b> {self.profile_data['path']}")
+
         mode_label.setStyleSheet("font-size: 14px; color: #333;")
         path_label.setStyleSheet("font-size: 14px; color: #333;")
 
-        info_layout.addWidget(mode_label)
-        info_layout.addWidget(path_label)
+        info_left.addWidget(mode_label)
+        info_left.addWidget(path_label)
+        info_layout.addLayout(info_left)
+
         wrapper_layout.addWidget(info_frame)
 
         self.content_display = QScrollArea()
@@ -63,7 +112,6 @@ class ProfileInfoPage(QWidget):
         wrapper_layout.addWidget(self.content_display, stretch=1)
         wrapper_layout.addWidget(self.toggle_content("code"))
 
-        # Кнопки снизу
         button_container = QWidget()
         button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(0, 10, 0, 0)
@@ -87,6 +135,8 @@ class ProfileInfoPage(QWidget):
         button_layout.addWidget(self.logs_button)
         button_layout.addWidget(self.code_button)
         button_layout.addWidget(self.edit_button)
+        if self.profile_data['disabled']:
+            self.edit_button.hide()
         button_layout.addWidget(self.back_button)
 
         wrapper_layout.addWidget(button_container)
@@ -128,30 +178,19 @@ class ProfileInfoPage(QWidget):
         elif content_type == "edit":
             self.edit_profile_code()
 
-
         elif content_type == "logs":
-
             logs_label = QLabel("Logs:")
-
             logs_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-
             self.scroll_area_logs = QScrollArea()
-
             self.scroll_area_logs.setWidgetResizable(True)
-
             self.logs_content_widget = QWidget()
-
             self.logs_layout = QVBoxLayout(self.logs_content_widget)
-
             self.logs_layout.setAlignment(Qt.AlignTop)
-
             self.scroll_area_logs.setWidget(self.logs_content_widget)
-
             self.content_display_layout.addWidget(logs_label)
-
             self.content_display_layout.addWidget(self.scroll_area_logs)
-
             self.load_logs_async()
+
         elif content_type == "empty":
             scroll_area = QScrollArea()
             scroll_area.setWidgetResizable(True)
@@ -170,17 +209,11 @@ class ProfileInfoPage(QWidget):
         PagesHolder().get_content_area().setCurrentWidget(edit)
 
     def load_logs_async(self):
-        self.thread = QThread()
-        self.worker = LogWorker(self.profile_data['name'])
-        self.worker.moveToThread(self.thread)
-
-        self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.display_logs)
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-
-        self.thread.start()
+        future = AppArmorWorker().run_async(
+            lambda: self.app_armor_manager.get_logs(self.profile_data['name'])
+        )
+        self.watcher = TaskWatcher(future)
+        self.watcher.finished.connect(lambda f: self.display_logs(f))
 
     def go_back(self):
         self.content_area.setCurrentWidget(self.parent)
@@ -191,29 +224,102 @@ class ProfileInfoPage(QWidget):
         self.deleteLater()
         event.accept()
 
-    def display_logs(self, logs):
+    def display_logs(self, logs: list[str]):
+        if self.logs_layout is None or sip.isdeleted(self.logs_layout):
+            return
+
         for log in logs:
-            log_label = QLabel(log)
-            log_label.setStyleSheet("font-size: 12px; padding: 5px; background: white; border-radius: 5px;")
+            log_label = QLabel()
+            log_label.setWordWrap(True)
+            log_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+            bg_color = "#ffffff"
+            if "DENIED" in log:
+                bg_color = "#ffe6e6"
+            elif "profile_replace" in log:
+                bg_color = "#f2f2f2"
+            elif "profile_remove" in log:
+                bg_color = "#fff2cc"
+            elif "ERROR" in log or "fail" in log.lower():
+                bg_color = "#ffcccc"
+
+            log_label.setStyleSheet(f"""
+                background-color: {bg_color};
+                font-family: monospace;
+                font-size: 12px;
+                padding: 8px;
+                border-radius: 6px;
+                margin-bottom: 4px;
+            """)
+
+            log_label.setText(log.strip())
             self.logs_layout.addWidget(log_label)
 
+        self.scroll_area_logs.setStyleSheet("""
+            QScrollBar:vertical {
+                background: #e0e0e0;
+                width: 10px;
+                margin: 2px 0;
+                border-radius: 5px;
+            }
 
-class LogWorker(QObject):
-    finished = pyqtSignal(list)
+            QScrollBar::handle:vertical {
+                background: black;
+                border-radius: 5px;
+            }
 
-    def __init__(self, profile_name):
-        super().__init__()
-        self.profile_name = profile_name
+            QScrollBar::handle:vertical:hover {
+                background: #666666;
+            }
 
-    def run(self):
-        since_time = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
-        result = run_command([
-            "journalctl", "-q", "--no-pager",
-            "--since", since_time,
-            "--grep", self.profile_name
-        ])
-        if result.returncode != 0:
-            self.finished.emit(["Ошибка при получении логов"])
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {
+                height: 0;
+            }
+        """)
+
+    def show_mode_selector(self):
+        self.mode_selector.setVisible(True)
+        self.apply_mode_btn.setVisible(True)
+        self.cancel_mode_btn.setVisible(True)
+        self.change_mode_btn.setVisible(False)
+
+    def cancel_mode_change(self):
+        self.mode_selector.setVisible(False)
+        self.apply_mode_btn.setVisible(False)
+        self.cancel_mode_btn.setVisible(False)
+        self.change_mode_btn.setVisible(True)
+
+    def apply_mode_change(self):
+        new_mode = self.mode_selector.currentText()
+        result = self.app_armor_manager.change_profile_mode(self.profile_data['name'], new_mode)
+
+        if result.returncode == 0:
+            self.update_profile()
         else:
-            logs = result.stdout.strip().splitlines()
-            self.finished.emit(logs if logs else ["Логи не найдены"])
+            print("Error change mode")
+
+        self.profile_data['mode'] = self.app_armor_manager.get_profile_mode_by_name(self.profile_data['name'])
+        self.mode_selector.setVisible(False)
+        self.apply_mode_btn.setVisible(False)
+        self.cancel_mode_btn.setVisible(False)
+        self.change_mode_btn.setVisible(True)
+
+    def disable_or_enable_profile(self):
+        mode = 'enable' if self.profile_data['disabled'] else 'disable'
+        result = self.app_armor_manager.change_profile_mode(self.profile_data['name'], mode)
+
+        if result.returncode == 0:
+            self.update_profile()
+        else:
+            print(result.stderr)
+
+    def update_profile(self):
+        self.profile_data['mode'] = self.app_armor_manager.get_profile_mode_by_name(self.profile_data['name'])
+        self.mode_label.setText(f"<b>Mode:</b> {self.profile_data['mode']}")
+        self.profile_data['disabled'] = self.profile_data['mode'] == 'disabled'
+        self.disable_btn.setText("Enable Profile" if self.profile_data['disabled'] else "Disable Profile")
+        if self.profile_data['disabled']:
+            self.edit_button.hide()
+        else:
+            self.edit_button.show()
