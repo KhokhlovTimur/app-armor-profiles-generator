@@ -3,7 +3,7 @@ import re
 import subprocess
 import tempfile
 
-from src.app_armor.app_armor_manager import AppArmorManager
+from src.app_armor.apparmor_manager import AppArmorManager
 from src.util.command_executor_util import run_command
 
 
@@ -56,10 +56,6 @@ def filter_stderr(stderr: str) -> str:
     return stderr
 
 def validate_and_load_profile(profile_string: str, profile_filename: str):
-    # validation_result = validate_profile(profile_string)
-    # if validation_result.returncode != 0:
-    #     print(filter_stderr(validation_result.stderr))
-    #     return validation_result
 
     result = save_and_add_profile(profile_string, profile_filename)
     if result.returncode == 0:
@@ -70,12 +66,6 @@ def validate_and_load_profile(profile_string: str, profile_filename: str):
 
 def edit_profile(profile_string: str, profile_filename: str):
     try:
-        # validation_result = validate_profile(profile_string)
-        # if validation_result.returncode != 0:
-        #     print(filter_stderr(validation_result.stderr))
-        #     return validation_result
-
-
         filepath = f"/etc/apparmor.d/{profile_filename}"
 
         temp_profile_path = os.path.join(tempfile.gettempdir(), profile_filename)

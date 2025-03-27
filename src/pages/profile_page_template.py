@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QPushButton, Q
 from PyQt5.QtGui import QFont, QPainter, QColor, QWheelEvent
 from PyQt5.QtCore import Qt, QPoint
 
-from src.app_armor.app_armor_parser import validate_and_load_profile
+from src.app_armor.apparmor_parser import validate_and_load_profile
 from src.pages.page_holder import PagesHolder
 
 

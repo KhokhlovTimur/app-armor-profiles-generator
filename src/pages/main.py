@@ -1,16 +1,24 @@
-import os
-import sys
-
+from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QStackedWidget
 
 from src.app_armor.credentials_holder import CredentialsHolder
 from src.pages.add_profile import AddProfilePage
+from src.pages.apparmor_status import AppArmorStatusPage
+from src.pages.new_binaries import NewBinariesHandler, NewBinariesPage
 from src.pages.page_holder import PagesHolder
 from src.pages.profiles import ProfilesPage
 from src.pages.side_menu import SideMenu
+from src.util.binary_watcher import Worker
 
 
 class MainWindow(QWidget):
+    _instance = None
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     def __init__(self):
         super().__init__()
@@ -28,18 +36,42 @@ class MainWindow(QWidget):
             window_height
         )
 
+        self.worker = Worker()
+        self.thread = QtCore.QThread()
+        self.worker.moveToThread(self.thread)
+        self.worker.newBinary.connect(lambda path, source: NewBinariesHandler().add_binary(self, path, source))
+        self.thread.started.connect(self.worker.start_monitoring)
+        self.thread.start()
+
         self.content_area = QStackedWidget()
         holder = PagesHolder()
         holder.content_area = self.content_area
 
         self.main_layout = QHBoxLayout(self)
+        self.apparmor_status_page = AppArmorStatusPage()
         self.profiles_page = ProfilesPage()
         holder.profiles = self.profiles_page.all_items
         self.add_profile_page = AddProfilePage()
-        self.menu = SideMenu(self.add_profile_page)
+        self.menu = SideMenu.instance()
+        holder.side_menu = self.menu
+        self.new_binaries_page = NewBinariesPage()
 
+        # self.profile_mgr = ProfileManager()
+        # self.select_page = GenerateProfilePage(self.profile_mgr)
+        # self.log_page = LogMonitorPage(self.profile_mgr)
+        # self.diff_page = ProfileDiffPage()
+        #
+        # self.stack = QStackedWidget()
+        # self.stack.addWidget(self.select_page)
+        # self.stack.addWidget(self.log_page)
+        # self.stack.addWidget(self.diff_page)
+
+
+        self.content_area.addWidget(self.apparmor_status_page)
         self.content_area.addWidget(self.profiles_page)
         self.content_area.addWidget(self.add_profile_page)
+        self.content_area.addWidget(self.new_binaries_page)
+        # self.content_area.addWidget(self.stack)
 
         menu_widget = self.menu.menu_widget
 
@@ -49,10 +81,17 @@ class MainWindow(QWidget):
 
         self.setLayout(self.main_layout)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "banner") and self.banner:
+            margin = 12
+            self.banner.move(self.width() - self.banner.width() - margin, margin)
+
 if __name__ == '__main__':
     app = QApplication([])
 
     window = MainWindow()
+    window1 = MainWindow.instance
     window.show()
 
     app.exec_()

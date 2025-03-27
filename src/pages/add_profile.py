@@ -8,6 +8,13 @@ from src.util.file_util import load_stylesheet
 class AddProfilePage(ProfilePageTemplate):
     profile_template_path = "../../resources/profile_template.txt"
     __profile_styles = "add_profile_page.qss"
+    _instance = None
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     def __init__(self):
         super().__init__()

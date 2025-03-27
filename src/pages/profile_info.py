@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal
 
-from src.app_armor.app_armor_manager import AppArmorManager
+from src.app_armor.apparmor_manager import AppArmorManager
 from src.pages.page_holder import PagesHolder
 from src.pages.edit_profile import EditProfilePage
 from src.util.command_executor_util import run_command

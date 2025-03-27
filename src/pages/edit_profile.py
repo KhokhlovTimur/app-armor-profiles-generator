@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QPushButton
 
-from src.app_armor.app_armor_manager import AppArmorManager
-from src.app_armor.app_armor_parser import edit_profile
+from src.app_armor.apparmor_manager import AppArmorManager
+from src.app_armor.apparmor_parser import edit_profile
 from src.pages.add_profile import AddProfilePage
 from src.pages.page_holder import PagesHolder
 
