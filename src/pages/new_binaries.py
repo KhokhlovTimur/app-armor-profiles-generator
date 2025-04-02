@@ -5,11 +5,12 @@ from PyQt5 import QtWidgets, QtCore
 
 from src.pages.page_holder import PagesHolder
 from src.pages.side_menu import SideMenu
+from src.util.file_util import join_project_root
 
 
 class NewBinariesHandler:
     _instance = None
-    STORAGE_PATH = os.path.expanduser("../../data/new_binaries.txt")
+    STORAGE_PATH = join_project_root("data", "new_binaries.txt")
 
     def __new__(cls):
         if cls._instance is None:
@@ -20,7 +21,6 @@ class NewBinariesHandler:
                     pass
 
         return cls._instance
-
 
     def add_binary(self, parent, path, source):
         self.parent = parent
@@ -42,7 +42,6 @@ class NewBinariesHandler:
                 return []
         else:
             return []
-
 
     def append_binary_to_file(self, entry):
         data = []

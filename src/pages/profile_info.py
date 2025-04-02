@@ -1,17 +1,13 @@
-from datetime import datetime, timedelta
-from urllib.request import DataHandler
-
 from PyQt5 import sip
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QFrame, QSizePolicy,
-    QTextEdit, QScrollArea, QGridLayout, QSpacerItem, QComboBox
+    QScrollArea, QComboBox
 )
-from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal
 
-from src.app_armor.apparmor_manager import AppArmorManager
-from src.pages.page_holder import PagesHolder
+from src.apparmor.apparmor_manager import AppArmorManager
 from src.pages.edit_profile import EditProfilePage
-from src.util.command_executor_util import run_command
+from src.pages.page_holder import PagesHolder
 from src.util.file_util import load_stylesheet
 from src.util.worker import AppArmorWorker, TaskWatcher
 
@@ -210,7 +206,7 @@ class ProfileInfoPage(QWidget):
 
     def load_logs_async(self):
         future = AppArmorWorker().run_async(
-            lambda: self.app_armor_manager.get_logs(self.profile_data['name'])
+            lambda: self.app_armor_manager.get_logs_not_empty(self.profile_data['name'], None)
         )
         self.watcher = TaskWatcher(future)
         self.watcher.finished.connect(lambda f: self.display_logs(f))

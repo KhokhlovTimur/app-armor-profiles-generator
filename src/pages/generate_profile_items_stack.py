@@ -2,15 +2,19 @@
 import os
 import re
 import subprocess
-from datetime import datetime
+from collections import defaultdict
 
 from PyQt5.QtCore import Qt, pyqtSignal, QProcess, QStringListModel
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTreeWidget,
-                             QTreeWidgetItem, QComboBox, QTextEdit, QFileDialog, QProgressBar, QDialog, QCompleter)
+                             QTreeWidgetItem, QComboBox, QTextEdit, QFileDialog, QProgressBar, QDialog, QCompleter,
+                             QMessageBox)
 
+from src.pages.page_holder import PagesHolder
+from src.pages.profile_generator import GeneratorPage
 from src.util.command_executor_util import run_command
+from src.util.file_util import load_stylesheet, load_stylesheet_buttons
 
 
 class ProfileManager:
@@ -20,21 +24,7 @@ class ProfileManager:
         self.profile_file = None
 
     def create_template_profile(self, bin_path):
-        profile_name = os.path.basename(bin_path).replace(" ", "_")
-        self.profile_name = f"{profile_name}-profile"
-        profile_text = (
-            f"profile {self.tmp_profile_name} \"{bin_path}\" flags=(complain) {{\n"
-            f"  #include <tunables/global>\n"
-            f"  #include <abstractions/base>\n"
-            f"  /etc/** r,\n"
-            f"  /usr/lib/** r,\n"
-            f"  /{os.path.basename(bin_path)} Pix,\n"
-            f"}}\n"
-        )
-        tmp_path = f"/tmp/{self.profile_name}.profile"
-        with open(tmp_path, "w") as f:
-            f.write(profile_text)
-        self.profile_file = tmp_path
+        self.profile_name = self.tmp_profile_name
         return self.profile_name, self.profile_file
 
     def load_profile_complain(self):
@@ -72,9 +62,11 @@ class ProfileManager:
 class SelectGenerateProfilePage(QWidget):
     started = pyqtSignal(str, str, str)
 
-    def __init__(self, profile_mgr: ProfileManager):
+    def __init__(self, stack, profile_mgr: ProfileManager, bin_path=None):
         super().__init__()
         self.mgr = profile_mgr
+        self.bin_path = bin_path
+        self.stack = stack
 
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop)
@@ -84,13 +76,14 @@ class SelectGenerateProfilePage(QWidget):
         self.completer = ExecutablePathCompleter(self.path_edit)
         self.path_edit.setCompleter(self.completer)
         self.path_edit.textEdited.connect(self.completer.update_model)
+        if bin_path is not None:
+            self.path_edit.setText(bin_path)
 
         browse_btn = QPushButton("Обзор...")
         browse_btn.clicked.connect(self.browse_file)
 
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Интерактивный запуск", "Фоновый запуск"])
         start_btn = QPushButton("Создать профиль и запустить")
+        load_stylesheet_buttons(start_btn)
         start_btn.clicked.connect(self.on_start)
 
         path_layout = QHBoxLayout()
@@ -99,8 +92,7 @@ class SelectGenerateProfilePage(QWidget):
 
         layout.addWidget(instr)
         layout.addLayout(path_layout)
-        layout.addWidget(QLabel("Режим запуска приложения:"))
-        layout.addWidget(self.mode_combo)
+        # layout.addWidget(QLabel("Режим запуска приложения:"))
         layout.addWidget(start_btn)
 
         layout.addStretch()
@@ -148,20 +140,27 @@ class SelectGenerateProfilePage(QWidget):
             #     QMessageBox.warning(self, "Ошибка", "Выбранный файл не является исполняемым.")
 
     def on_start(self):
-        profiling_start_time = datetime.now().isoformat(sep=' ', timespec='seconds')
-        bin_path = self.path_edit.text().strip()
-        if not bin_path:
+        if not self.path_edit.text().strip():
+            QMessageBox.warning(self, "Ошибка ввода", "Пожалуйста, выберите приложение.")
             return
-        profile_name, profile_file = self.mgr.create_template_profile(bin_path)
-        self.mgr.load_profile_complain()
-        mode = self.mode_combo.currentIndex()
-        cmd = ["aa-exec", "-p", profile_name, "--", bin_path]
-        if mode == 0:
-            self.show_interactive_dialog(bin_path, profile_name, cmd)
-        else:
-            run_command(["sudo", "-S", cmd])
-        print("emit")
-        self.started.emit(bin_path, profile_name, profiling_start_time)
+
+        self.generation_page = GeneratorPage(self.stack, self, self.path_edit.text())
+        PagesHolder().get_content_area().addWidget(self.generation_page)
+        PagesHolder().get_content_area().setCurrentWidget(self.generation_page)
+        # profiling_start_time = datetime.now().isoformat(sep=' ', timespec='seconds')
+        # bin_path = self.path_edit.text().strip()
+        # if not bin_path:
+        #     return
+        # profile_name, profile_file = self.mgr.create_template_profile(bin_path)
+        # self.mgr.load_profile_complain()
+        # mode = self.mode_combo.currentIndex()
+        # cmd = ["aa-exec", "-p", profile_name, "--", bin_path]
+        # if mode == 0:
+        #     self.show_interactive_dialog(bin_path, profile_name, cmd)
+        # else:
+        #     run_command(["sudo", "-S", cmd])
+        # print("emit")
+        # self.started.emit(bin_path, profile_name, profiling_start_time)
 
     def show_interactive_dialog(self, bin_path, profile_name, cmd):
         self.process = QProcess(self)
@@ -172,7 +171,7 @@ class SelectGenerateProfilePage(QWidget):
         dialog.setFixedSize(360, 140)
 
         layout = QVBoxLayout(dialog)
-        label = QLabel("🧑‍💻 Работайте с приложением.\nНажмите 'Завершить', когда закончите.")
+        label = QLabel("‍💻 Работайте с приложением.\nНажмите 'Завершить', когда закончите.")
         label.setAlignment(Qt.AlignCenter)
 
         progress = QProgressBar()
@@ -186,7 +185,7 @@ class SelectGenerateProfilePage(QWidget):
         layout.addWidget(done_button)
 
         self.process.finished.connect(lambda: done_button.click())
-        self.process.start("aa-exec", ["-p", profile_name, "--", bin_path])
+        self.process.start("aa-exec", ["-p", profile_name, bin_path])
 
         dialog.exec_()
 
@@ -291,32 +290,132 @@ class LogMonitorPage(QWidget):
         pattern = re.compile(
             r'apparmor="(DENIED|ALLOWED)".+?operation="(?P<op>[^"]+)"(?:.+?)?profile="(?P<profile>[^"]+)"(?:.+?)?name="(?P<name>[^"]+)"'
         )
+        grouped = defaultdict(list)
+        seen_entries = set()
 
         for line in output.splitlines():
-            if f'profile="{profile_name}"' not in line:
-                continue
-
             match = pattern.search(line)
             if not match:
                 continue
 
             op = match.group("op")
             name = match.group("name")
+            profile = match.group("profile")
+            if not profile.endswith(profile_name):
+                continue
 
-            # Категория (очень грубо)
-            if op in ("open", "read", "write", "exec", "file_mmap"):
-                cat = "Файлы"
-            elif op in ("connect", "accept", "sendmsg", "recvmsg"):
-                cat = "Сеть"
-            elif op in ("capable",):
-                cat = "Capabilities"
-            else:
-                cat = "Другие"
+            key = (op, name)
+            if key in seen_entries:
+                continue
+            seen_entries.add(key)
 
-            desc = f"{op} {name}"
-            self.add_event(cat, desc)
+            grouped[op].append({"operation": op, "path": name, "raw": line})
+
+        self.tree.clear()
+        self.cat_items.clear()
+
+        for op_type, entries in grouped.items():
+            parent = QTreeWidgetItem([f"{op_type} ({len(entries)})"])
+            self.tree.addTopLevelItem(parent)
+            self.cat_items[op_type] = parent
+            for entry in entries:
+                self.add_event(op_type, entry)
 
         self.tree.expandAll()
+
+    def add_event(self, category, entry):
+        if category not in self.cat_items:
+            parent = QTreeWidgetItem([category])
+            self.tree.addTopLevelItem(parent)
+            self.cat_items[category] = parent
+        else:
+            parent = self.cat_items[category]
+
+        rule_text = self.generate_rule(entry)
+
+        # Разделим путь и тип доступа
+        if " " in rule_text:
+            path, access = rule_text.rsplit(" ", 1)
+        else:
+            path, access = rule_text, ""
+
+        # Оформим доступ жирным и цветным
+        html = f"{path} <b><span style='color:#006400'>{access}</span></b>"
+
+        item = QTreeWidgetItem(parent)
+        item.setData(0, Qt.DisplayRole, "")
+        item.setData(0, Qt.UserRole, rule_text)  # сохраним оригинал
+
+        # Используем QLabel с HTML
+        label = QLabel()
+        label.setTextFormat(Qt.RichText)
+        label.setText(html)
+        self.tree.setItemWidget(item, 0, label)
+
+        combo = QComboBox()
+        combo.addItems(["Разрешить", "Запретить", "Игнорировать"])
+        self.tree.setItemWidget(item, 1, combo)
+
+        parent.addChild(item)
+
+    def generate_rule(self, entry):
+        path = entry.get("path", "")
+        op = entry.get("operation", "")
+
+        if not path:
+            return f"# Неизвестный путь для операции {op}"
+
+        if op in ("open", "read"):
+            return f"{path} r,"
+        elif op == "write":
+            return f"{path} w,"
+        elif op == "append":
+            return f"{path} a,"
+        elif op == "file_mmap":
+            return f"{path} mr,"
+        elif op == "unlink":
+            return f"{path} d,"
+        elif op == "create":
+            return f"{path} w,"
+        elif op == "truncate":
+            return f"{path} w,"
+        elif op == "rename":
+            return f"{path} w,"
+        elif op == "chmod":
+            return f"{path} w,"
+        elif op == "chown":
+            return f"{path} w,"
+        elif op == "getattr":
+            return f"{path} r,"
+
+        elif op in ("exec", "execute"):
+            return f"{path} ix,"  # может быть также Px, Cx, ux в зависимости от желания
+
+        elif op in ("connect", "sendmsg", "recvmsg"):
+            return f"network inet stream,"
+        elif op in ("accept",):
+            return f"network inet stream,"
+        elif op == "bind":
+            return f"network inet stream,"
+
+        elif op == "capable":
+            cap_match = re.search(r'capname="([^"]+)"', entry.get("raw", ""))
+            capname = cap_match.group(1) if cap_match else "unknown"
+            return f"capability {capname},"
+
+        elif op == "signal":
+            return f"signal {path},"
+
+        elif op == "mount":
+            return f"mount {path},"
+
+        elif op == "ptrace":
+            return f"ptrace {path},"
+
+        elif op in ("shm_read", "shm_write", "ipc"):
+            return f"{path} rw,"
+
+        return f"# ❓ Неизвестная операция: {op} → {path}"
 
 
 class ProfileDiffPage(QWidget):

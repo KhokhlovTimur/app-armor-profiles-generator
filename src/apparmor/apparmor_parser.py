@@ -3,9 +3,12 @@ import re
 import subprocess
 import tempfile
 
-from src.app_armor.apparmor_manager import AppArmorManager
+from src.apparmor.apparmor_manager import AppArmorManager
+from src.util.apparmor_util import replace_profile_body_from_file, replace_full_profile_from_file
 from src.util.command_executor_util import run_command
+from src.util.file_util import join_project_root
 
+tmp_profile_name = "tmp_profile"
 
 def validate_profile(profile_string: str):
     try:
@@ -56,7 +59,6 @@ def filter_stderr(stderr: str) -> str:
     return stderr
 
 def validate_and_load_profile(profile_string: str, profile_filename: str):
-
     result = save_and_add_profile(profile_string, profile_filename)
     if result.returncode == 0:
         print("Профиль успешно добавлен.")
@@ -64,24 +66,29 @@ def validate_and_load_profile(profile_string: str, profile_filename: str):
         print(filter_stderr(result.stderr))
     return result
 
-def edit_profile(profile_string: str, profile_filename: str):
+def edit_profile_body_and_check(profile_string: str, profile_filename: str):
     try:
+        tmp_filepath = f"/etc/apparmor.d/{tmp_profile_name}"
         filepath = f"/etc/apparmor.d/{profile_filename}"
 
-        temp_profile_path = os.path.join(tempfile.gettempdir(), profile_filename)
-        with open(temp_profile_path, "w") as f:
-            f.write(profile_string)
+        text_before = replace_profile_body_from_file(tmp_filepath, profile_string).stdout
 
         parser_result = run_command([
-            "sudo", "-S", "apparmor_parser", "-r", temp_profile_path
+            "sudo", "-S", "apparmor_parser", "-r", tmp_filepath
         ])
 
         if parser_result.returncode != 0:
+            filepath = f"/etc/apparmor.d/{tmp_profile_name}"
+            run_command([
+                "sudo", "-S", "cp", join_project_root("resources", "profile_base"), filepath
+            ])
             return parser_result
 
-        copy_result = run_command([
-            "sudo", "-S", "cp", temp_profile_path, filepath
-        ])
+        if tmp_filepath == filepath:
+            reload_result = AppArmorManager().reload_apparmor()
+            return reload_result
+
+        copy_result = replace_full_profile_from_file(filepath, profile_string)
         if copy_result.returncode != 0:
             return copy_result
 
@@ -92,3 +99,14 @@ def edit_profile(profile_string: str, profile_filename: str):
     except Exception as e:
         print(f"Error editing profile: {e}")
         return subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr=str(e))
+
+def load_tmp_profile():
+    filepath = f"/etc/apparmor.d/{tmp_profile_name}"
+    result = run_command(["sudo", "-S", "cp", join_project_root("resources", "profile_base"), filepath])
+
+    result = run_command([
+        "sudo", "-S", "apparmor_parser", "-r", filepath
+    ])
+    AppArmorManager().reload_apparmor()
+    return
+

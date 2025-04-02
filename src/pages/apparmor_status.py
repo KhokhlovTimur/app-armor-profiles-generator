@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from PyQt5 import QtWidgets, QtCore
@@ -57,8 +58,17 @@ class AppArmorStatusPage(QtWidgets.QWidget):
 
         try:
             full_status = run_command(["sudo", "-S", "systemctl", "status", "apparmor"]).stdout
+
+            header_part = full_status.split("\n")
+            cut_index = 0
+            for i, line in enumerate(header_part):
+                if re.match(r"^\w{3} \d{1,2} \d{2}:\d{2}:\d{2}", line):
+                    cut_index = i
+                    break
+            trimmed_status = "\n".join(header_part[:cut_index]) if cut_index else full_status
+
             output_lines.append("[ systemctl status apparmor ]")
-            output_lines.append(full_status.strip())
+            output_lines.append(trimmed_status.strip())
 
             systemctl_status = run_command(["sudo", "-S", "systemctl", "is-active", "apparmor"]).stdout.strip()
             if systemctl_status == "active":

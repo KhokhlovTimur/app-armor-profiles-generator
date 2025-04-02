@@ -1,11 +1,16 @@
+#!/usr/bin/env python3
+
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QStackedWidget
 
-from src.app_armor.credentials_holder import CredentialsHolder
+from src.apparmor.apparmor_parser import load_tmp_profile
+from src.apparmor.credentials_holder import CredentialsHolder
 from src.pages.add_profile import AddProfilePage
 from src.pages.apparmor_status import AppArmorStatusPage
+from src.pages.generator_pages_stack import StartGenerateProfilePage
 from src.pages.new_binaries import NewBinariesHandler, NewBinariesPage
 from src.pages.page_holder import PagesHolder
+from src.pages.profile_generator import GeneratorPage
 from src.pages.profiles import ProfilesPage
 from src.pages.side_menu import SideMenu
 from src.util.binary_watcher import Worker
@@ -23,6 +28,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         holder = CredentialsHolder()
+        load_tmp_profile()
         self.setWindowTitle("AppArmor GUI")
         screen_geometry = QApplication.primaryScreen().geometry()
         screen_width, screen_height = screen_geometry.width(), screen_geometry.height()
@@ -55,6 +61,8 @@ class MainWindow(QWidget):
         self.menu = SideMenu.instance()
         holder.side_menu = self.menu
         self.new_binaries_page = NewBinariesPage()
+        self.generator_page = StartGenerateProfilePage()
+        # self.stack = GenerateProfilePage().init_stack()
 
         # self.profile_mgr = ProfileManager()
         # self.select_page = GenerateProfilePage(self.profile_mgr)
@@ -71,7 +79,7 @@ class MainWindow(QWidget):
         self.content_area.addWidget(self.profiles_page)
         self.content_area.addWidget(self.add_profile_page)
         self.content_area.addWidget(self.new_binaries_page)
-        # self.content_area.addWidget(self.stack)
+        self.content_area.addWidget(self.generator_page.stack)
 
         menu_widget = self.menu.menu_widget
 

@@ -2,11 +2,11 @@ import re
 from urllib.request import DataHandler
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QPushButton, QFileDialog, QMessageBox, QHBoxLayout, \
-    QSplitter, QTextEdit
+    QSplitter, QTextEdit, QLabel, QDialog, QProgressBar
 from PyQt5.QtGui import QFont, QPainter, QColor, QWheelEvent
-from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtCore import Qt, QPoint, QProcess
 
-from src.app_armor.apparmor_parser import validate_and_load_profile
+from src.apparmor.apparmor_parser import validate_and_load_profile
 from src.pages.page_holder import PagesHolder
 
 
@@ -44,16 +44,19 @@ class ProfilePageTemplate(QWidget):
         self.line_number_area.setFont(current_font)
         self.line_number_area.update()
 
-    def save_profile(self):
+    def save_profile(self, profile_as_string=None):
         profile_data = self.template_edit.toPlainText()
         try_save = validate_and_load_profile(profile_data, _extract_profile_name(profile_data))
-        self._check_profile(try_save)
+        self._check_profile(try_save, profile_as_string)
 
-    def _check_profile(self, command_res):
+    def _check_profile(self, command_res, profile_as_string=None):
         self.error_message = None
         if command_res.returncode == 0:
             QMessageBox.information(self, "Успех", f"Профиль успешно сохранен и загружен!")
-            self.template_edit.setPlainText(self.get_default_template())
+            if profile_as_string is None:
+                self.template_edit.setPlainText(self.get_default_template())
+            else:
+                self.template_edit.setPlainText(profile_as_string)
         else:
             self.error_message = self.filter_stderr(command_res.stderr) if command_res.stderr else "Неизвестная ошибка при проверке профиля."
             QMessageBox.warning(self, "Ошибка", f"Ошибка в профиле:\n{self.error_message}")

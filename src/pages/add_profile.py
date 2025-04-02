@@ -1,13 +1,20 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayout, QSplitter, QWidget
+import shutil
+import subprocess
 
-from src.pages.profile_page_template import ProfilePageTemplate, LineNumberArea, ZoomableTextEdit
-from src.util.file_util import load_stylesheet
+from PyQt5.QtCore import Qt, QProcess
+from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayout, QSplitter, QWidget, QDialog, QLabel, \
+    QProgressBar, QMessageBox
+
+from src.apparmor.apparmor_parser import tmp_profile_name, edit_profile_body_and_check
+from src.pages.profile_page_template import ProfilePageTemplate, LineNumberArea
+from src.util.command_executor_util import launch_command_interactive
+from src.util.file_util import load_stylesheet, join_project_root
 
 
 class AddProfilePage(ProfilePageTemplate):
-    profile_template_path = "../../resources/profile_template.txt"
+    profile_template_path = join_project_root("resources", "profile_template.txt")
     __profile_styles = "add_profile_page.qss"
+    _tmp_profile_name = "tmp_profile"
     _instance = None
 
     @classmethod
@@ -86,3 +93,29 @@ class AddProfilePage(ProfilePageTemplate):
         self.save_button = QPushButton("Save", self)
         self.save_button.clicked.connect(self.save_profile)
         self.buttons_layout.addWidget(self.save_button)
+
+    def launch_profile_interactive(self, bin_path, profile_as_string=None):
+        output = edit_profile_body_and_check(self.template_edit.toPlainText(), tmp_profile_name)
+        self._check_profile(output, profile_as_string)
+
+        if output.returncode != 0:
+            self.error_message = self.filter_stderr(output.stderr) if output.stderr else "Неизвестная ошибка при проверке профиля."
+            QMessageBox.warning(self, "Error", f"{self.error_message}")
+            return
+
+        launch_command_interactive(f"aa-exec -p {tmp_profile_name} -- {bin_path}; exec bash", self)
+
+        confirm = QMessageBox.question(
+            self,
+            "Сохранить изменения?",
+            "Сохранить изменения в профиль?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save
+        )
+
+        if confirm == QMessageBox.Save:
+            self.save_profile()
+        elif confirm == QMessageBox.Discard:
+            print("Изменения не сохранены.")
+        else:
+            print("Действие отменено.")

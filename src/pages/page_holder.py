@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QStackedWidget
 
-from src.app_armor.apparmor_manager import AppArmorManager
+from src.apparmor.apparmor_manager import AppArmorManager
 
 
 class PagesHolder:

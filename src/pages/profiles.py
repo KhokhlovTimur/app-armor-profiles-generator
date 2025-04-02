@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from src.app_armor.apparmor_manager import AppArmorManager
+from src.apparmor.apparmor_manager import AppArmorManager
 from src.pages.page_holder import PagesHolder
 from src.pages.profile_info import ProfileInfoPage
 from src.util.file_util import load_stylesheet

@@ -1,13 +1,17 @@
 import subprocess
+import subprocess
 import sys
 
-from PyQt5.QtWidgets import QInputDialog, QLineEdit, QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import QLineEdit, QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton
+
+from src.util.file_util import join_project_root
 
 
 class CredentialsHolder:
     _instance = None
     # __pswd = None
-    __pswd = open('../../creds/pswd.txt').readline()
+    CREDS_PATH = join_project_root('creds', 'pswd.txt')
+    __pswd = open(CREDS_PATH).readline()
 
     def get_pswd(self):
         return CredentialsHolder.__pswd

@@ -3,9 +3,11 @@ import subprocess
 from datetime import timedelta, datetime
 
 from src.util.command_executor_util import run_command
+from src.util.file_util import get_profile_file_timestamp
 
 
 class AppArmorManager:
+
     def __init__(self):
         pass
 
@@ -18,13 +20,25 @@ class AppArmorManager:
     def check_service_status(self):
         return run_command(["sudo", "systemctl", "status", "apparmor"])
 
-    def read_apparmor_profile_by_name( self, profile_name, directory="/etc/apparmor.d"):
+    def read_apparmor_profile_by_name(self, profile_name, directory="/etc/apparmor.d"):
         for filename in os.listdir(directory):
-            if filename == profile_name or filename.replace('/', '.') == profile_name:
+            base_name = filename.rstrip(".profile")
+            if filename == profile_name or base_name == profile_name or filename.replace('/', '.') == profile_name:
                 file_path = os.path.join(directory, filename)
                 try:
+                    # Пробуем обычное открытие
                     with open(file_path, 'r') as f:
                         return f.read()
+                except PermissionError:
+                    print(f"[!] Нет доступа к {file_path}, пробуем через sudo...")
+
+                    try:
+                        # Пробуем прочитать через sudo
+                        output = subprocess.check_output(["sudo", "cat", file_path], text=True)
+                        return output
+                    except Exception as e:
+                        print(f"Ошибка при чтении с правами sudo: {e}")
+                        return None
                 except Exception as e:
                     print(f"Ошибка при чтении файла: {e}")
                     return None
@@ -69,14 +83,10 @@ class AppArmorManager:
                 if not os.path.isfile(filepath):
                     continue
 
-                disabled = False
-                disable_link_path = os.path.join(disable_dir, filename)
-                if os.path.islink(disable_link_path):
-                    target = os.readlink(disable_link_path)
-                    if target == f"../{filename}":
-                        disabled = True
-
                 profile_mode = mode_map.get(filename, "disabled")
+                if profile_mode == "disabled" and filename is not None:
+                    profile_mode = mode_map.get("/" + filename.replace(".", "/"), "disabled")
+
                 profiles.append({
                     'name': filename,
                     'mode': profile_mode,
@@ -111,7 +121,7 @@ class AppArmorManager:
                         current_mode = mode_key
                         continue
 
-                if current_mode and line.strip() == profile_name:
+                if current_mode and line.strip() == profile_name or (line.strip() == "/" + profile_name.replace(".", "/")):
                     return current_mode
 
             return "disabled"
@@ -119,16 +129,13 @@ class AppArmorManager:
             print(f"Ошибка при получении режима профиля '{profile_name}': {e}")
             return "error"
 
-    def get_logs(self, profile_name: str) -> list:
-        logs = self._get_logs_from("apparmor", profile_name)
-        logs.extend(self._get_logs_from("apparmor_parser", profile_name))
+    def get_logs_not_empty(self, profile_name: str, status=None) -> list:
+        logs = self.get_logs_from(_from="apparmor", profile_name=profile_name, status=status, since=get_profile_file_timestamp(profile_name))
         return logs if len(logs) > 0 else ['Not found']
 
-    def _get_logs_from(self, _from, profile_name):
-        since = (datetime.now() - timedelta(hours=12)).strftime("%Y-%m-%d %H:%M:%S")
-
+    def get_logs_from(self, _from="apparmor", profile_name=None, status=None, since=(datetime.now() - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")):
         result = run_command([
-            "journalctl", "-k", "--since", since
+            "journalctl", "-g", profile_name, "--since", since, "--no-pager"
         ])
 
         if result.returncode != 0:
@@ -136,16 +143,17 @@ class AppArmorManager:
 
         logs = result.stdout.strip().splitlines()
 
-        filtered_logs = [
-            line for line in logs
-            if f'name="{profile_name}"' in line and _from.lower() in line.lower()
-        ]
-        # if result_apparmor.returncode == 0:
-        #     logs = result_apparmor.stdout.strip().splitlines()
-        #     profile_key = f"profile={profile_name}"
-        #     filtered_logs = [log for log in logs if profile_key in log]
-        # else:
-        #     filtered_logs.append("Ошибка при получении логов AppArmor.")
+        filtered_logs = []
+        for line in logs:
+            if f'name="{profile_name}"' in line and _from.lower() in line.lower():
+                if (status is not None and f'apparmor={status}' in line) or status is None:
+                    if _from.lower() in line.lower():
+                        filtered_logs.append(line)
+
+        # filtered_logs = [
+        #     line for line in logs
+        #     if f'name="{profile_name}"' in line and _from.lower() in line.lower()
+        # ]
 
         return filtered_logs
 
