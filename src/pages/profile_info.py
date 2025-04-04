@@ -2,12 +2,14 @@ from PyQt5 import sip
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QFrame, QSizePolicy,
-    QScrollArea, QComboBox
+    QScrollArea, QComboBox, QTableWidgetItem, QHeaderView, QTableWidget
 )
 
 from src.apparmor.apparmor_manager import AppArmorManager
-from src.pages.edit_profile import EditProfilePage
+from src.model.apparmor_profile import AppArmorProfile
+from src.pages.create_profile.profile_edit import EditProfilePage
 from src.pages.page_holder import PagesHolder
+from src.util.apparmor_util import parse_profile_rules
 from src.util.file_util import load_stylesheet
 from src.util.worker import AppArmorWorker, TaskWatcher
 
@@ -16,7 +18,7 @@ class ProfileInfoPage(QWidget):
     def __init__(self, profile_data, parent):
         super().__init__()
         self.setWindowTitle("Profile Info")
-        self.profile_data = profile_data
+        self.profile = AppArmorProfile(name=profile_data['name'], path=profile_data['path'], disabled=profile_data['disabled'], mode=profile_data['disabled'])
         self.content_area = PagesHolder().get_content_area()
         self.app_armor_manager = AppArmorManager()
         self.parent = parent
@@ -30,7 +32,7 @@ class ProfileInfoPage(QWidget):
         title_bar = QHBoxLayout()
         title_bar.setAlignment(Qt.AlignLeft)
 
-        title_label = QLabel(self.profile_data['name'])
+        title_label = QLabel(self.profile.name)
         title_label.setStyleSheet("font-size: 22px; font-weight: bold;")
         title_bar.addWidget(title_label)
         title_bar.addStretch()
@@ -65,7 +67,7 @@ class ProfileInfoPage(QWidget):
         self.change_mode_btn.setObjectName("top_btn")
         self.change_mode_btn.clicked.connect(self.show_mode_selector)
 
-        self.disable_btn = QPushButton("Enable Profile" if self.profile_data['disabled'] else "Disable Profile")
+        self.disable_btn = QPushButton("Enable Profile" if self.profile.disabled else "Disable Profile")
         self.disable_btn.setObjectName("top_btn")
         self.disable_btn.clicked.connect(self.disable_or_enable_profile)
 
@@ -81,9 +83,9 @@ class ProfileInfoPage(QWidget):
         info_left = QVBoxLayout()
         info_left.setAlignment(Qt.AlignTop)
 
-        mode_label = QLabel(f"<b>Mode:</b> {self.profile_data['mode']}")
+        mode_label = QLabel(f"<b>Mode:</b> {self.profile.mode}")
         self.mode_label = mode_label
-        path_label = QLabel(f"<b>Path:</b> {self.profile_data['path']}")
+        path_label = QLabel(f"<b>Path:</b> {self.profile.path}")
 
         mode_label.setStyleSheet("font-size: 14px; color: #333;")
         path_label.setStyleSheet("font-size: 14px; color: #333;")
@@ -93,6 +95,19 @@ class ProfileInfoPage(QWidget):
         info_layout.addLayout(info_left)
 
         wrapper_layout.addWidget(info_frame)
+
+        self.view_mode_selector = QComboBox()
+        self.view_mode_selector.addItems(["Code View", "Table View"])
+        self.view_mode_selector.setFixedWidth(150)
+        self.view_mode_selector.currentIndexChanged.connect(self.on_view_mode_changed)
+        load_stylesheet("combobox.qss", self.view_mode_selector)
+
+        view_selector_widget = QWidget()
+        view_selector_layout = QHBoxLayout(view_selector_widget)
+        view_selector_layout.setContentsMargins(0, 0, 10, 0)
+        view_selector_layout.setAlignment(Qt.AlignRight)
+        view_selector_layout.addWidget(self.view_mode_selector)
+        wrapper_layout.addWidget(view_selector_widget)
 
         self.content_display = QScrollArea()
         self.content_display.setWidgetResizable(True)
@@ -131,13 +146,19 @@ class ProfileInfoPage(QWidget):
         button_layout.addWidget(self.logs_button)
         button_layout.addWidget(self.code_button)
         button_layout.addWidget(self.edit_button)
-        if self.profile_data['disabled']:
+        if self.profile.disabled:
             self.edit_button.hide()
         button_layout.addWidget(self.back_button)
 
         wrapper_layout.addWidget(button_container)
 
         self.setLayout(wrapper_layout)
+
+    def on_view_mode_changed(self, index):
+        if index == 0:
+            self.toggle_content("code")
+        elif index == 1:
+            self.toggle_content("table")
 
     def toggle_content(self, content_type):
         self.content_display_layout.setAlignment(Qt.AlignTop)
@@ -187,6 +208,9 @@ class ProfileInfoPage(QWidget):
             self.content_display_layout.addWidget(self.scroll_area_logs)
             self.load_logs_async()
 
+        elif content_type == "table":
+            self.show_table_view()
+
         elif content_type == "empty":
             scroll_area = QScrollArea()
             scroll_area.setWidgetResizable(True)
@@ -196,17 +220,39 @@ class ProfileInfoPage(QWidget):
 
         self.content_display.setVisible(True)
 
+    def show_table_view(self):
+        code = self.get_profile_code()
+        parsed = parse_profile_rules(code)
+
+        table = QTableWidget()
+        table.verticalHeader().setVisible(False)
+        table.setCornerButtonEnabled(False)
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Path / Rule", "Permissions"])
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.setStyleSheet("font-family: monospace; font-size: 12px;  margin-top: 10px")
+
+        row = 0
+
+        for inc in parsed:
+            table.insertRow(row)
+            table.setItem(row, 0, QTableWidgetItem(inc))
+            table.setItem(row, 1, QTableWidgetItem(""))
+            row += 1
+
+        self.content_display_layout.addWidget(table)
+
     def get_profile_code(self):
-        return self.app_armor_manager.read_apparmor_profile_by_name(self.profile_data['name'])
+        return self.app_armor_manager.read_apparmor_profile_by_name(self.profile.name)
 
     def edit_profile_code(self):
-        edit = EditProfilePage(self.profile_data, self)
+        edit = EditProfilePage(self.profile, self)
         PagesHolder().get_content_area().addWidget(edit)
         PagesHolder().get_content_area().setCurrentWidget(edit)
 
     def load_logs_async(self):
         future = AppArmorWorker().run_async(
-            lambda: self.app_armor_manager.get_logs_not_empty(self.profile_data['name'], None)
+            lambda: self.app_armor_manager.get_logs_not_empty(self.profile.name, None)
         )
         self.watcher = TaskWatcher(future)
         self.watcher.finished.connect(lambda f: self.display_logs(f))
@@ -288,22 +334,22 @@ class ProfileInfoPage(QWidget):
 
     def apply_mode_change(self):
         new_mode = self.mode_selector.currentText()
-        result = self.app_armor_manager.change_profile_mode(self.profile_data['name'], new_mode)
+        result = self.app_armor_manager.change_profile_mode(self.profile.name, new_mode)
 
         if result.returncode == 0:
             self.update_profile()
         else:
             print("Error change mode")
 
-        self.profile_data['mode'] = self.app_armor_manager.get_profile_mode_by_name(self.profile_data['name'])
+        self.profile.mode = self.app_armor_manager.get_profile_mode_by_name(self.profile.name)
         self.mode_selector.setVisible(False)
         self.apply_mode_btn.setVisible(False)
         self.cancel_mode_btn.setVisible(False)
         self.change_mode_btn.setVisible(True)
 
     def disable_or_enable_profile(self):
-        mode = 'enable' if self.profile_data['disabled'] else 'disable'
-        result = self.app_armor_manager.change_profile_mode(self.profile_data['name'], mode)
+        mode = 'enable' if self.profile.disabled else 'disable'
+        result = self.app_armor_manager.change_profile_mode(self.profile.name, mode)
 
         if result.returncode == 0:
             self.update_profile()
@@ -311,11 +357,11 @@ class ProfileInfoPage(QWidget):
             print(result.stderr)
 
     def update_profile(self):
-        self.profile_data['mode'] = self.app_armor_manager.get_profile_mode_by_name(self.profile_data['name'])
-        self.mode_label.setText(f"<b>Mode:</b> {self.profile_data['mode']}")
-        self.profile_data['disabled'] = self.profile_data['mode'] == 'disabled'
-        self.disable_btn.setText("Enable Profile" if self.profile_data['disabled'] else "Disable Profile")
-        if self.profile_data['disabled']:
+        self.profile.mode = self.app_armor_manager.get_profile_mode_by_name(self.profile.name)
+        self.mode_label.setText(f"<b>Mode:</b> {self.profile.mode}")
+        self.profile.disabled = self.profile.mode == 'disabled'
+        self.disable_btn.setText("Enable Profile" if self.profile.disabled else "Disable Profile")
+        if self.profile.disabled:
             self.edit_button.hide()
         else:
             self.edit_button.show()

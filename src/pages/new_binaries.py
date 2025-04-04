@@ -3,9 +3,10 @@ import os
 
 from PyQt5 import QtWidgets, QtCore
 
+from src.pages.create_profile.profile_create_start import StartGenerateProfilePage
 from src.pages.page_holder import PagesHolder
 from src.pages.side_menu import SideMenu
-from src.util.file_util import join_project_root
+from src.util.file_util import join_project_root, load_stylesheet_buttons
 
 
 class NewBinariesHandler:
@@ -133,8 +134,9 @@ class NewBinariesHandler:
 
 
 class NewBinariesPage(QtWidgets.QWidget):
-    def __init__(self):
+    def __init__(self, start_generate_page: StartGenerateProfilePage):
         super().__init__()
+        self.start_generate_page = start_generate_page
         self.setWindowTitle("Новые бинарники")
         self.setMinimumSize(600, 400)
 
@@ -164,11 +166,10 @@ class NewBinariesPage(QtWidgets.QWidget):
             self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(binary["source"]))
 
             create_btn = QtWidgets.QPushButton("Создать профиль")
+            load_stylesheet_buttons(create_btn)
             create_btn.clicked.connect(lambda _, path=binary["path"]: self.create_profile(path))
             self.table.setCellWidget(row, 2, create_btn)
 
     def create_profile(self, path):
-        # window = ProfileCollectorPage(path)
-        # window.show()
-        # window.raise_()
-        print("123")
+        self.start_generate_page.select_page.set_binary_path(path)
+        PagesHolder().get_content_area().setCurrentWidget(self.start_generate_page.stack)

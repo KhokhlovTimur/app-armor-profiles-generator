@@ -2,7 +2,7 @@ import datetime
 import os.path
 import re
 
-from src.const import PROJECT_ROOT
+from src.constants import PROJECT_ROOT
 
 def join_project_root(*args):
     return os.path.join(PROJECT_ROOT, *args)

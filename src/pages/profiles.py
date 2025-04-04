@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt
 from src.apparmor.apparmor_manager import AppArmorManager
 from src.pages.page_holder import PagesHolder
 from src.pages.profile_info import ProfileInfoPage
-from src.util.file_util import load_stylesheet
+from src.util.file_util import load_stylesheet, load_stylesheet_buttons
 
 
 class ProfilesPage(QWidget):
@@ -54,6 +54,8 @@ class ProfilesPage(QWidget):
         self.prev_button.clicked.connect(self.prev_page)
         self.next_button = QPushButton("Next")
         self.next_button.clicked.connect(self.next_page)
+        load_stylesheet_buttons(self.prev_button)
+        load_stylesheet_buttons(self.next_button)
         self.page_label = QLabel()
         self.page_selector = QComboBox()
         self.page_selector.currentIndexChanged.connect(self.select_page)

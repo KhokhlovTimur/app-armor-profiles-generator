@@ -1,16 +1,16 @@
 import re
-from urllib.request import DataHandler
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QPushButton, QFileDialog, QMessageBox, QHBoxLayout, \
-    QSplitter, QTextEdit, QLabel, QDialog, QProgressBar
+from PyQt5.QtCore import Qt, QPoint, pyqtSignal
 from PyQt5.QtGui import QFont, QPainter, QColor, QWheelEvent
-from PyQt5.QtCore import Qt, QPoint, QProcess
+from PyQt5.QtWidgets import QWidget, QFileDialog, QMessageBox, QTextEdit
 
 from src.apparmor.apparmor_parser import validate_and_load_profile
-from src.pages.page_holder import PagesHolder
+from src.util.apparmor_util import extract_profile_name
 
 
 class ProfilePageTemplate(QWidget):
+    finished = pyqtSignal()
+
     def __init__(self):
         super().__init__()
 
@@ -44,9 +44,9 @@ class ProfilePageTemplate(QWidget):
         self.line_number_area.setFont(current_font)
         self.line_number_area.update()
 
-    def save_profile(self, profile_as_string=None):
+    def save_profile(self, profile_as_string: str = None):
         profile_data = self.template_edit.toPlainText()
-        try_save = validate_and_load_profile(profile_data, _extract_profile_name(profile_data))
+        try_save = validate_and_load_profile(profile_data, extract_profile_name(profile_data))
         self._check_profile(try_save, profile_as_string)
 
     def _check_profile(self, command_res, profile_as_string=None):
@@ -54,16 +54,13 @@ class ProfilePageTemplate(QWidget):
         if command_res.returncode == 0:
             QMessageBox.information(self, "Успех", f"Профиль успешно сохранен и загружен!")
             if profile_as_string is None:
-                self.template_edit.setPlainText(self.get_default_template())
+                pass
             else:
                 self.template_edit.setPlainText(profile_as_string)
         else:
-            self.error_message = self.filter_stderr(command_res.stderr) if command_res.stderr else "Неизвестная ошибка при проверке профиля."
+            self.error_message = self.filter_stderr(
+                command_res.stderr) if command_res.stderr else "Неизвестная ошибка при проверке профиля."
             QMessageBox.warning(self, "Ошибка", f"Ошибка в профиле:\n{self.error_message}")
-
-    def start_create_profile(self):
-        # self.select_file()
-        pass
 
     def filter_stderr(self, stderr: str) -> str:
         stderr = stderr.strip()
@@ -72,33 +69,6 @@ class ProfilePageTemplate(QWidget):
 
     def update_line_numbers(self):
         self.line_number_area.updateArea()
-
-    def import_profile(self):
-        file_dialog = QFileDialog(self)
-        file_dialog.setFileMode(QFileDialog.AnyFile)
-        file_dialog.setAcceptMode(QFileDialog.AcceptOpen)
-        file_dialog.setNameFilter("Все файлы (*)")
-        file_dialog.setViewMode(QFileDialog.List)
-
-        if file_dialog.exec_():
-            self.file_path = file_dialog.selectedFiles()[0]
-            print(f"Выбран путь и файл: {self.file_path}")
-            if self.file_path:
-                try:
-                    with open(self.file_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                        self.template_edit.setPlainText(content)
-                except Exception as e:
-                    print(f"Ошибка при чтении файла: {e}")
-
-        return None
-
-def _extract_profile_name(profile_str: str) -> str | None:
-    match = re.search(r'^\s*profile\s+([^\s]+)', profile_str, re.MULTILINE)
-    if match:
-        return match.group(1)
-    return None
-
 
 class LineNumberArea(QWidget):
     def __init__(self, editor):

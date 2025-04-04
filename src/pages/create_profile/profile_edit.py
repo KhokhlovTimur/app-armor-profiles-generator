@@ -1,29 +1,30 @@
-from PyQt5 import Qt
-from PyQt5.QtCore import QProcess
-from PyQt5.QtWidgets import QPushButton, QDialog, QVBoxLayout, QLabel, QProgressBar
+from PyQt5.QtWidgets import QPushButton, QMessageBox
 
 from src.apparmor.apparmor_manager import AppArmorManager
 from src.apparmor.apparmor_parser import edit_profile_body_and_check
-from src.pages.add_profile import AddProfilePage
+from src.model.apparmor_profile import AppArmorProfile
+from src.pages.create_profile.profile_add import CreateProfilePage
 from src.pages.page_holder import PagesHolder
-from src.util.apparmor_util import extract_profile_body, extract_profile_path
+from src.util.apparmor_util import extract_profile_path
 
 
-class EditProfilePage(AddProfilePage):
-    def __init__(self, profile_data, parent):
-        super().__init__()
+class EditProfilePage(CreateProfilePage):
+    def __init__(self, profile: AppArmorProfile, parent):
+        super().__init__(profile)
         self.setWindowTitle("Edit Profile")
         self.app_armor_manager = AppArmorManager()
-        self.profile_data = profile_data
+        self.profile = profile
+        self.edit_profile_text = None
         self.parent = parent
-        self.template_edit.setPlainText(self.app_armor_manager.read_apparmor_profile_by_name(self.profile_data['name']))
+        self.profile_code = self.app_armor_manager.read_apparmor_profile_by_name(self.profile.name)
+        self.template_edit.setPlainText(self.profile_code)
 
     def go_back(self):
         self.deleteLater()
         PagesHolder().get_content_area().removeWidget(self)
 
     def save_profile(self, profile_as_string=None):
-        command = edit_profile_body_and_check(self.template_edit.toPlainText(), self.profile_data['name'])
+        command = edit_profile_body_and_check(self.template_edit.toPlainText(), self.profile.name)
         self._check_profile(command)
         if self.error_message is None:
             PagesHolder().get_content_area().setCurrentWidget(self.parent)
@@ -39,16 +40,12 @@ class EditProfilePage(AddProfilePage):
         self.decrease_font_button.clicked.connect(self.decrease_font_size)
         self.buttons_layout.addWidget(self.decrease_font_button)
 
-        self.import_file_button = QPushButton("Import", self)
-        self.import_file_button.clicked.connect(self.import_profile)
-        self.buttons_layout.addWidget(self.import_file_button)
+        # self.import_file_button = QPushButton("Import", self)
+        # self.import_file_button.clicked.connect(self.import_profile)
+        # self.buttons_layout.addWidget(self.import_file_button)
 
         self.sandbox_button = QPushButton("Run In Sandbox", self)
-        self.sandbox_button.clicked.connect(lambda: (
-            self.launch_profile_interactive(extract_profile_path(self.template_edit.toPlainText())),
-            self.deleteLater(),
-            PagesHolder().get_content_area().removeWidget(self)
-        ))
+        self.sandbox_button.clicked.connect(lambda: self._launch_app())
         self.buttons_layout.addWidget(self.sandbox_button)
 
         self.save_button = QPushButton("Save", self)
@@ -61,3 +58,12 @@ class EditProfilePage(AddProfilePage):
 
     def launch_profile_interactive(self, bin_path, profile_as_string=None):
         super().launch_profile_interactive(bin_path, self.template_edit.toPlainText())
+
+    def _launch_app(self):
+        path = extract_profile_path(self.template_edit.toPlainText())
+        if path is None:
+            QMessageBox.warning(self, "Error", "Binary not found")
+            return
+        self.launch_profile_interactive(path)
+        self.deleteLater()
+        PagesHolder().get_content_area().removeWidget(self)

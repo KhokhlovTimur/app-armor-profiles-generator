@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
 )
 
 from src.apparmor.credentials_holder import CredentialsHolder
+from src.pages.executable import ExecutablePage
 from src.util.command_executor_util import launch_command_interactive
 from src.util.file_util import load_stylesheet, load_stylesheet_buttons
 
@@ -29,13 +30,11 @@ def parse_options_line(options_text):
                 results.append((letter, option_label))
     return results
 
-class GeneratorPage(QWidget):
+class GeneratorPage(QWidget, ExecutablePage):
     update_signal = pyqtSignal()
 
-    def __init__(self, stack: QStackedWidget, parent, bin_path):
+    def __init__(self, bin_path):
         super().__init__()
-        self.stack = stack
-        self.parent = parent
         self.is_reject_all = False
         self.is_accept_all = False
         self.update_signal.connect(self.flush_output)
@@ -143,7 +142,7 @@ class GeneratorPage(QWidget):
         else:
             self.output.appendPlainText("")
 
-        self.stack.setCurrentWidget(self.parent)
+        self.finished.emit()
         self.deleteLater()
 
     def accept_all(self):
@@ -336,7 +335,6 @@ class NonRuleDialog(QDialog):
     def on_button_clicked(self, command):
         self.selected_command = command
         self.accept()
-
 
 class InteractiveEntryWidget(QWidget):
     def __init__(self, info_text, options_text, command_callback):
