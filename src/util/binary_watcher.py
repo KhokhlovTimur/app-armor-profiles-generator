@@ -96,7 +96,7 @@ class Worker(QtCore.QObject):
         self.observer.start()
         if warnings:
             warn_text = ", ".join(warnings)
-            self.logWarning.finish(f"Нет доступа к {warn_text} (данные об установках из этих источников недоступны)")
+            self.logWarning.emit(f"Нет доступа к {warn_text} (данные об установках из этих источников недоступны)")
 
     def scan_all_directories(self):
         for d in self.bin_dirs:
@@ -110,7 +110,7 @@ class Worker(QtCore.QObject):
                                     continue
                                 self.known_paths.add(path)
                             source = self.determine_source(path)
-                            self.newBinary.finish(path, source)
+                            self.newBinary.emit(path, source)
                 except PermissionError:
                     continue
 
@@ -122,7 +122,7 @@ class Worker(QtCore.QObject):
                 return
             self.known_paths.add(path)
         source = self.determine_source(path)
-        self.newBinary.finish(path, source)
+        self.newBinary.emit(path, source)
 
     def handle_modified(self, path):
         skip_exts = ('.env', '.conf', '.ini', '.txt', '.md', '.html', '.xml', '.json')

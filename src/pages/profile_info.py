@@ -5,22 +5,21 @@ from PyQt5.QtWidgets import (
     QScrollArea, QComboBox, QTableWidgetItem, QHeaderView, QTableWidget
 )
 
-from src.apparmor.apparmor_manager import AppArmorManager
+from src.apparmor.apparmor_manager import get_profile_mode_by_name, change_profile_mode, get_logs_not_empty, \
+    read_apparmor_profile_by_name
 from src.model.apparmor_profile import AppArmorProfile
-from src.pages.create_profile.profile_edit import EditProfilePage
+from src.pages.profile_edit import EditProfilePage
 from src.pages.page_holder import PagesHolder
-from src.util.apparmor_util import parse_profile_rules
+from src.util.apparmor_util import parse_profile_rules, extract_profile_path
 from src.util.file_util import load_stylesheet
-from src.util.worker import AppArmorWorker, TaskWatcher
 
 
 class ProfileInfoPage(QWidget):
     def __init__(self, profile_data, parent):
         super().__init__()
         self.setWindowTitle("Profile Info")
-        self.profile = AppArmorProfile(name=profile_data['name'], path=profile_data['path'], disabled=profile_data['disabled'], mode=profile_data['disabled'])
         self.content_area = PagesHolder().get_content_area()
-        self.app_armor_manager = AppArmorManager()
+        self.profile = AppArmorProfile(name=profile_data['name'], path=extract_profile_path(read_apparmor_profile_by_name(profile_data['name'])), disabled=profile_data['disabled'], mode=profile_data['mode'])
         self.parent = parent
         self.initUI()
 
@@ -243,7 +242,7 @@ class ProfileInfoPage(QWidget):
         self.content_display_layout.addWidget(table)
 
     def get_profile_code(self):
-        return self.app_armor_manager.read_apparmor_profile_by_name(self.profile.name)
+        return read_apparmor_profile_by_name(self.profile.name)
 
     def edit_profile_code(self):
         edit = EditProfilePage(self.profile, self)
@@ -251,11 +250,12 @@ class ProfileInfoPage(QWidget):
         PagesHolder().get_content_area().setCurrentWidget(edit)
 
     def load_logs_async(self):
-        future = AppArmorWorker().run_async(
-            lambda: self.app_armor_manager.get_logs_not_empty(self.profile.name, None)
-        )
-        self.watcher = TaskWatcher(future)
-        self.watcher.finished.connect(lambda f: self.display_logs(f))
+        # future = AppArmorWorker().run_async(
+        #     lambda: self.app_armor_manager.get_logs_not_empty(self.profile.name, None)
+        # )
+        # self.watcher = TaskWatcher(future)
+        # self.watcher.finished.connect(lambda f: self.display_logs(f))
+        self.display_logs(get_logs_not_empty(self.profile.name, extract_profile_path(read_apparmor_profile_by_name(self.profile.name)), None))
 
     def go_back(self):
         self.content_area.setCurrentWidget(self.parent)
@@ -334,14 +334,14 @@ class ProfileInfoPage(QWidget):
 
     def apply_mode_change(self):
         new_mode = self.mode_selector.currentText()
-        result = self.app_armor_manager.change_profile_mode(self.profile.name, new_mode)
+        result = change_profile_mode(self.profile.name, new_mode)
 
         if result.returncode == 0:
             self.update_profile()
         else:
             print("Error change mode")
 
-        self.profile.mode = self.app_armor_manager.get_profile_mode_by_name(self.profile.name)
+        self.profile.mode = get_profile_mode_by_name(self.profile.name)
         self.mode_selector.setVisible(False)
         self.apply_mode_btn.setVisible(False)
         self.cancel_mode_btn.setVisible(False)
@@ -349,7 +349,7 @@ class ProfileInfoPage(QWidget):
 
     def disable_or_enable_profile(self):
         mode = 'enable' if self.profile.disabled else 'disable'
-        result = self.app_armor_manager.change_profile_mode(self.profile.name, mode)
+        result = change_profile_mode(self.profile.name, mode)
 
         if result.returncode == 0:
             self.update_profile()
@@ -357,7 +357,7 @@ class ProfileInfoPage(QWidget):
             print(result.stderr)
 
     def update_profile(self):
-        self.profile.mode = self.app_armor_manager.get_profile_mode_by_name(self.profile.name)
+        self.profile.mode = get_profile_mode_by_name(self.profile.name)
         self.mode_label.setText(f"<b>Mode:</b> {self.profile.mode}")
         self.profile.disabled = self.profile.mode == 'disabled'
         self.disable_btn.setText("Enable Profile" if self.profile.disabled else "Disable Profile")

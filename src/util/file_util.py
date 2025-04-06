@@ -36,3 +36,19 @@ def get_profile_file_timestamp(profile_name: str) -> dict:
 
     return result
 
+def get_profile_created_or_modified_date(profile_name: str):
+    res = get_profile_file_timestamp(profile_name=profile_name)
+    if res["modified"] is not None:
+        return res["modified"].strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        return res["created"].strftime("%Y-%m-%d %H:%M:%S")
+
+def is_binary_executable(b_path: str) -> bool:
+    if not os.path.isfile(b_path):
+        return False
+
+    if not os.access(b_path, os.X_OK):
+        return False
+
+    return True
+

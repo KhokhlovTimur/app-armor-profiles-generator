@@ -22,7 +22,7 @@ class SelectGenerateProfilePage(QWidget):
 
         instr = QLabel("Укажите путь к программе для профилирования:")
         self.path_edit = QLineEdit()
-        self.completer = ExecutablePathCompleter(self.path_edit)
+        self.completer = ExecutablePathCompleter(self.path_edit, False)
         self.path_edit.setCompleter(self.completer)
         self.path_edit.textEdited.connect(self.completer.update_model)
         if bin_path is not None:
@@ -114,15 +114,14 @@ class SelectGenerateProfilePage(QWidget):
                 try:
                     with open(self.file_path, "r", encoding="utf-8") as f:
                         content = f.read()
+                        profile = AppArmorProfile(full_code=content)
+                        self.create_page = CreateProfilePage(profile)
+                        self.stack.addWidget(self.create_page)
+                        self.stack.setCurrentWidget(self.create_page)
+                        self.create_page.finished.connect(self.stack_back)
                         # self.template_edit.setPlainText(content)
                 except Exception as e:
                     print(f"Ошибка при чтении файла: {e}")
-
-        profile = AppArmorProfile(full_code=content)
-        self.create_page = CreateProfilePage(profile)
-        self.stack.addWidget(self.create_page)
-        self.stack.setCurrentWidget(self.create_page)
-        self.create_page.finished.connect(self.stack_back)
 
         return None
 

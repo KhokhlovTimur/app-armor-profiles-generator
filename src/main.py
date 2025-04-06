@@ -41,13 +41,6 @@ class MainWindow(QWidget):
             window_height
         )
 
-        self.worker = Worker()
-        self.thread = QtCore.QThread()
-        self.worker.moveToThread(self.thread)
-        self.worker.newBinary.connect(lambda path, source: NewBinariesHandler().add_binary(self, path, source))
-        self.thread.started.connect(self.worker.start_monitoring)
-        self.thread.start()
-
         self.content_area = QStackedWidget()
         holder = PagesHolder()
         holder.content_area = self.content_area
@@ -78,6 +71,13 @@ class MainWindow(QWidget):
 
         self.setLayout(self.main_layout)
 
+        self.worker = Worker()
+        self.thread = QtCore.QThread()
+        self.worker.moveToThread(self.thread)
+        self.worker.newBinary.connect(lambda path, source: NewBinariesHandler().add_binary(self, self.generator_page, path, source))
+        self.thread.started.connect(self.worker.start_monitoring)
+        self.thread.start()
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, "banner") and self.banner:
@@ -88,7 +88,6 @@ if __name__ == '__main__':
     app = QApplication([])
 
     window = MainWindow()
-    window1 = MainWindow.instance
     window.show()
 
     app.exec_()

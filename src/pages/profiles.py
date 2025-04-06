@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from src.apparmor.apparmor_manager import AppArmorManager
+from src.apparmor.apparmor_manager import get_profiles_from_apparmor_d
 from src.pages.page_holder import PagesHolder
 from src.pages.profile_info import ProfileInfoPage
 from src.util.file_util import load_stylesheet, load_stylesheet_buttons
@@ -129,7 +129,7 @@ class ProfilesPage(QWidget):
         self.update_pagination()
 
     def __get_profiles(self):
-        return AppArmorManager().get_profiles_from_apparmor_d()
+        return get_profiles_from_apparmor_d()
 
     def create_profile_card(self, profile_data, row, col):
         container = QFrame()

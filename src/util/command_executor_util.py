@@ -25,7 +25,7 @@ def run_command(command):
         return subprocess.CompletedProcess(args=command, returncode=1, stdout='', stderr=str(e))
 
 
-def launch_command_interactive(cmd, parent, exec_func=None) -> None | QProcess:
+def launch_command_interactive(cmd, parent, exec_func=None, is_run: bool=True) -> None | QProcess:
     process = QProcess(parent)
 
     dialog = QDialog(parent)
@@ -44,7 +44,7 @@ def launch_command_interactive(cmd, parent, exec_func=None) -> None | QProcess:
     layout.addWidget(progress)
 
     done_button = QPushButton("✅ Завершить")
-    done_button.clicked.connect(lambda : (dialog.accept(), exec_func())[1] if exec_func else dialog.accept())
+    done_button.clicked.connect(lambda: (dialog.accept(), exec_func())[1] if exec_func else dialog.accept())
     layout.addWidget(done_button)
 
     # process.finished.connect(lambda a,b : (done_button.click(), exec_func()))
@@ -52,10 +52,7 @@ def launch_command_interactive(cmd, parent, exec_func=None) -> None | QProcess:
     terminal = shutil.which("gnome-terminal") or shutil.which("xterm")
     if terminal:
         try:
-            if "sudo" in cmd:
-                new_cmd = f"echo 'Запуск команды: {cmd}' && echo '{CredentialsHolder().get_pswd()}' | sudo -S {cmd}"
-            else:
-                new_cmd = f"echo 'Запуск команды: {cmd}' && {cmd}"
+            new_cmd = f'cd /'
             new_cmd += "; exec bash"
 
             if "gnome-terminal" in terminal:
@@ -72,4 +69,3 @@ def launch_command_interactive(cmd, parent, exec_func=None) -> None | QProcess:
     dialog.exec_()
 
     return process
-

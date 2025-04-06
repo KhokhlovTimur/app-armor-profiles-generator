@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QPushButton, QMessageBox
 
-from src.apparmor.apparmor_manager import AppArmorManager
+from src.apparmor.apparmor_manager import read_apparmor_profile_by_name
 from src.apparmor.apparmor_parser import edit_profile_body_and_check
 from src.model.apparmor_profile import AppArmorProfile
 from src.pages.create_profile.profile_add import CreateProfilePage
@@ -12,11 +12,10 @@ class EditProfilePage(CreateProfilePage):
     def __init__(self, profile: AppArmorProfile, parent):
         super().__init__(profile)
         self.setWindowTitle("Edit Profile")
-        self.app_armor_manager = AppArmorManager()
         self.profile = profile
         self.edit_profile_text = None
         self.parent = parent
-        self.profile_code = self.app_armor_manager.read_apparmor_profile_by_name(self.profile.name)
+        self.profile_code = read_apparmor_profile_by_name(self.profile.name)
         self.template_edit.setPlainText(self.profile_code)
 
     def go_back(self):

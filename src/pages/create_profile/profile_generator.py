@@ -8,10 +8,11 @@ from PyQt5.QtCore import QTimer, QProcess, pyqtSignal, QSocketNotifier
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton,
     QPlainTextEdit, QLineEdit, QLabel, QHBoxLayout, QTabWidget,
-    QDialog, QStackedWidget
+    QDialog, QStackedWidget, QMessageBox
 )
 
 from src.apparmor.credentials_holder import CredentialsHolder
+from src.apparmor.profile_generator import ProfileFromLogsGenerator
 from src.pages.executable import ExecutablePage
 from src.util.command_executor_util import launch_command_interactive
 from src.util.file_util import load_stylesheet, load_stylesheet_buttons
@@ -22,25 +23,24 @@ def parse_options_line(options_text):
     results = []
     for seg in segments:
         seg = seg.strip(" []").strip()
-        if seg.startswith("("):
-            closing_paren = seg.find(")")
-            if closing_paren != -1:
-                letter = seg[1:closing_paren]
-                option_label = seg[closing_paren + 1:].strip()
-                results.append((letter, option_label))
+        match = re.search(r"\((\w)\)", seg)
+        if match:
+            letter = match.group(1)
+            option_label = seg
+            results.append((letter, option_label))
     return results
 
-class GeneratorPage(QWidget, ExecutablePage):
+class GeneratorPage(QWidget):
     update_signal = pyqtSignal()
+    finished = pyqtSignal()
 
     def __init__(self, bin_path):
         super().__init__()
         self.is_reject_all = False
         self.is_accept_all = False
-        self.update_signal.connect(self.flush_output)
+        # self.update_signal.connect(self.flush_output)
         self.binary = bin_path
         self.last_text_input = ""
-        self.setWindowTitle("AppArmor: aa-genprof (GUI)")
         self.setGeometry(200, 200, 900, 600)
 
         main_layout = QVBoxLayout()
@@ -89,12 +89,29 @@ class GeneratorPage(QWidget, ExecutablePage):
         self.prcessed_paths = set()
         self.rule_count = 1
 
-        self.run_genprof()
+        self.run_generate()
 
-    def run_genprof(self):
+    def run_generate(self):
         if self.process:
             self.output.appendPlainText("Процесс уже запущен")
             return
+
+        self.generator = ProfileFromLogsGenerator()
+        command_res = self.generator.start_generate(self.binary)
+
+        if command_res.returncode == 0:
+            pass
+        else:
+            self.error_message = self.filter_stderr(
+                command_res.stderr) if command_res.stderr else "Неизвестная ошибка при проверке профиля."
+            QMessageBox.warning(self, "Error", f"\n{self.error_message}")
+            self.terminate_proc()
+            return
+
+        self.generator.exec_app(self)
+        self.process, self.master_fd = self.generator.run_generate()
+        self.generator.on_data_received.connect(lambda f: self.flush_output(f))
+        self.generator.on_proc_terminated.connect(self.terminate_proc)
 
         self.output_buffer = ""
         self.output.clear()
@@ -103,37 +120,10 @@ class GeneratorPage(QWidget, ExecutablePage):
         self.exec_app_called = False
         self.is_last_dialog = False
 
-        try:
-            self.master_fd, slave_fd = pty.openpty()
-
-            env = os.environ.copy()
-            env["TERM"] = "dumb"
-            env["PAGER"] = "cat"
-
-            self.process = subprocess.Popen(
-                ["sudo", "-S", "aa-genprof", self.binary],
-                stdin=slave_fd,
-                stdout=slave_fd,
-                stderr=slave_fd,
-                env=env,
-                text=True,
-                bufsize=1,
-                close_fds=True
-            )
-
-            os.close(slave_fd)
-
-            os.write(self.master_fd, (CredentialsHolder().get_pswd() + "\n").encode())
-
-            flags = fcntl.fcntl(self.master_fd, fcntl.F_GETFL)
-            fcntl.fcntl(self.master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
-            self.notifier = QSocketNotifier(self.master_fd, QSocketNotifier.Read)
-            self.notifier.activated.connect(self.on_master_ready)
-
-        except Exception as e:
-            self.output_buffer += f"\nОшибка запуска: {e}\n"
-            self.update_signal.emit()
+    def filter_stderr(self, stderr: str) -> str:
+        stderr = stderr.strip()
+        stderr = re.sub(r'^\[sudo\] пароль для .*?:\s*', '', stderr)
+        return stderr
 
     def terminate_proc(self):
         if self.process and self.process.poll() is None:
@@ -153,60 +143,61 @@ class GeneratorPage(QWidget, ExecutablePage):
         self.is_reject_all = True
         self.send_input("B")
 
-    def on_master_ready(self):
-        try:
-            chunk = self.read_full_chunk()
-            if chunk:
-                self.first_text_received = True
-                self.output_buffer = chunk
+    # def on_master_ready(self):
+    #     try:
+    #         chunk = self.read_full_chunk()
+    #         if chunk:
+    #             print(chunk)
+    #             self.first_text_received = True
+    #             self.output_buffer = chunk
+    #
+    #             if "Press RETURN to continue" in chunk:
+    #                 os.write(self.master_fd, b"\n")
+    #                 return
+    #
+    #             self.update_signal.emit()
+    #         else:
+    #             self.notifier.setEnabled(False)
+    #             self.output_buffer += "aa-genprof завершён.\n"
+    #             self.update_signal.emit()
+    #
+    #         if self.process and self.process.poll() is not None:
+    #             print("Процесс завершился")
+    #             self.notifier.setEnabled(False)
+    #             self.terminate_proc()
+    #     except BlockingIOError:
+    #         pass
+    #     except OSError as e:
+    #         print(f"❌ Ошибка чтения: {e}")
+    #         self.notifier.setEnabled(False)
+    #
+    # def read_full_chunk(self):
+    #     result = ""
+    #     while True:
+    #         try:
+    #             chunk = os.read(self.master_fd, 4096).decode(errors="ignore")
+    #             if not chunk:
+    #                 break
+    #             result += chunk
+    #         except BlockingIOError:
+    #             break
+    #         except OSError:
+    #             break
+    #     return result
 
-                if "Press RETURN to continue" in chunk:
-                    os.write(self.master_fd, b"\n")
-                    return
+    # def exec_app(self) -> None | QProcess:
+    #     return launch_command_interactive(f"{self.binary}; exec bash", self, self.check_generated_logs)
 
-                self.update_signal.emit()
-            else:
-                self.notifier.setEnabled(False)
-                self.output_buffer += "aa-genprof завершён.\n"
-                self.update_signal.emit()
-
-            if self.process and self.process.poll() is not None:
-                print("Процесс завершился")
-                self.notifier.setEnabled(False)
-                self.terminate_proc()
-        except BlockingIOError:
-            pass
-        except OSError as e:
-            print(f"❌ Ошибка чтения: {e}")
-            self.notifier.setEnabled(False)
-
-    def read_full_chunk(self):
-        result = ""
-        while True:
-            try:
-                chunk = os.read(self.master_fd, 4096).decode(errors="ignore")
-                if not chunk:
-                    break
-                result += chunk
-            except BlockingIOError:
-                break
-            except OSError:
-                break
-        return result
-
-    def exec_app(self) -> None | QProcess:
-        return launch_command_interactive(f"{self.binary}; exec bash", self, self.check_generated_logs)
-
-    def flush_output(self, output=None):
-        if not self.output_buffer:
+    def flush_output(self, output_buffer=None):
+        if not output_buffer:
             return
 
         if self.is_last_dialog:
-            self.output.appendPlainText(self.output_buffer)
+            self.output.appendPlainText(output_buffer)
 
-        self.curr_buffer = self.output_buffer
-        self.interactive_buffer += self.output_buffer
-        self.output_buffer = ""
+        self.curr_buffer = output_buffer
+        self.interactive_buffer += output_buffer
+        output_buffer= ""
         self.is_last_dialog = False
         executed = False
         if self.is_last_dialog and self.binary in self.curr_buffer:
@@ -250,14 +241,14 @@ class GeneratorPage(QWidget, ExecutablePage):
         # if not executed and bool(re.search(r"[\[\(][A-Z0-9][\]\)]", self.curr_buffer)) and self.exec_app_called:
         #     self.output.appendPlainText(self.curr_buffer)
 
-        if not self.exec_app_called and self.first_text_received:
-            print(f'exec {self.binary}')
-
-            def delayed_exec():
-                self.exec_app()
-
-            QTimer.singleShot(2000, delayed_exec)
-            self.exec_app_called = True
+        # if not self.exec_app_called and self.first_text_received:
+        #     print(f'exec {self.binary}')
+        #
+        #     def delayed_exec():
+        #         self.exec_app()
+        #
+        #     QTimer.singleShot(2000, delayed_exec)
+        #     self.exec_app_called = True
 
     def check_generated_logs(self):
         self.send_input("S")
@@ -279,6 +270,8 @@ class GeneratorPage(QWidget, ExecutablePage):
     def update_interactive_entry(self, info_text, options_text):
         widget = InteractiveEntryWidget(info_text, options_text, self.send_command)
         tab_name = f"{self.rule_count - 1}"
+        if not self.tab_widget:
+            return
         index = self.tab_widget.count() - 1
         self.tab_widget.removeTab(index)
         self.tab_widget.insertTab(index, widget, tab_name)
@@ -327,7 +320,7 @@ class NonRuleDialog(QDialog):
         buttons_layout = QHBoxLayout()
         options = parse_options_line(options_text)
         for letter, label in options:
-            btn = QPushButton(f"{letter} {label}")
+            btn = QPushButton(f"{label}")
             btn.clicked.connect(lambda _, cmd=letter: self.on_button_clicked(cmd))
             buttons_layout.addWidget(btn)
         layout.addLayout(buttons_layout)
@@ -356,7 +349,7 @@ class InteractiveEntryWidget(QWidget):
         options = parse_options_line(options_text)
         self.buttons = []
         for index, (letter, label) in enumerate(options):
-            btn = QPushButton(f"{letter} {label}")
+            btn = QPushButton(f"{label}")
             load_stylesheet("buttons.qss", btn)
             btn.clicked.connect(lambda _, cmd=letter, idx=index: self.on_button_clicked(cmd, idx))
             self.buttons.append(btn)

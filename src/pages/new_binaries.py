@@ -2,6 +2,8 @@ import json
 import os
 
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtCore import QPropertyAnimation
+from PyQt5.QtWidgets import QGraphicsOpacityEffect
 
 from src.pages.create_profile.profile_create_start import StartGenerateProfilePage
 from src.pages.page_holder import PagesHolder
@@ -23,7 +25,8 @@ class NewBinariesHandler:
 
         return cls._instance
 
-    def add_binary(self, parent, path, source):
+    def add_binary(self, parent, start_generate_page: StartGenerateProfilePage, path, source):
+        self.start_generate_page = start_generate_page
         self.parent = parent
         binary = {'path': path, 'source': source}
         self.show_binary_notification(path, source)
@@ -84,8 +87,10 @@ class NewBinariesHandler:
             print(f"{e}")
 
     def show_binary_notification(self, path, source):
-        if hasattr(self, "banner") and self.banner:
-            self.banner.deleteLater()
+        if hasattr(self, "banner") and self.banner and not self._banner_closing:
+            self._close_banner(force=True)
+
+        self._banner_closing = False  # флаг, что баннер активен
 
         self.banner = QtWidgets.QWidget(self.parent)
         self.banner.setFixedSize(320, 80)
@@ -98,7 +103,8 @@ class NewBinariesHandler:
         self.banner.move(self.parent.width() - self.banner.width() - margin, margin)
         self.banner.setWindowFlags(QtCore.Qt.FramelessWindowHint)
         self.banner.setAttribute(QtCore.Qt.WA_StyledBackground, True)
-        self.banner.raise_()
+        self.banner.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.banner.setFocusPolicy(QtCore.Qt.NoFocus)
 
         layout = QtWidgets.QHBoxLayout(self.banner)
         layout.setContentsMargins(12, 8, 12, 8)
@@ -113,24 +119,55 @@ class NewBinariesHandler:
         text.setStyleSheet("border: none;")
         text.setTextFormat(QtCore.Qt.RichText)
 
-        self.banner.mousePressEvent = lambda event: self._open_new_binaries_page()
-
         layout.addWidget(icon)
         layout.addWidget(text)
         layout.addStretch()
 
+        self.banner.mousePressEvent = lambda event: self._on_click_notification(path)
+
+        self.effect = QGraphicsOpacityEffect(self.banner)
+        self.banner.setGraphicsEffect(self.effect)
+
+        self.fade_anim = QPropertyAnimation(self.effect, b"opacity")
+        self.fade_anim.setDuration(300)
+        self.fade_anim.setStartValue(0.0)
+        self.fade_anim.setEndValue(1.0)
+        self.fade_anim.start()
+
         self.banner.show()
-        QtCore.QTimer.singleShot(60000, self.banner.close)
+
+        QtCore.QTimer.singleShot(8000, self._close_banner)
 
     def open_profile_creator(self, binary_path):
         if hasattr(self, 'banner'):
-            self.banner.close()
+            self._close_banner()
 
-    def _open_new_binaries_page(self):
-        menu = SideMenu.instance()
-        menu.new_binaries_button.animateClick(100)
-        self.banner.deleteLater()
-        PagesHolder().get_content_area().setCurrentIndex(3)
+    def _on_click_notification(self, path):
+        self._close_banner()
+        self.start_generate_page.select_page.set_binary_path(path)
+        PagesHolder().get_content_area().setCurrentWidget(self.start_generate_page.stack)
+
+    def _close_banner(self, force=False):
+        if hasattr(self, "banner") and self.banner:
+            if force:
+                self.banner.close()
+                self.banner = None
+                return
+
+            self._banner_closing = True
+
+            self.fade_out = QPropertyAnimation(self.banner.graphicsEffect(), b"opacity")
+            self.fade_out.setDuration(300)
+            self.fade_out.setStartValue(1.0)
+            self.fade_out.setEndValue(0.0)
+            self.fade_out.finished.connect(self._finalize_close)
+            self.fade_out.start()
+
+    def _finalize_close(self):
+        if hasattr(self, "banner") and self.banner:
+            self.banner.close()
+            self.banner = None
+            self._banner_closing = False
 
 
 class NewBinariesPage(QtWidgets.QWidget):

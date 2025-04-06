@@ -1,0 +1,6 @@
+#include <tunables/global>
+
+profile tmp_profile flags=(enforce) {
+    #include <abstractions/base>
+}
+

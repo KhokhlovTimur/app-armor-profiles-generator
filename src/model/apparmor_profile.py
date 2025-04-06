@@ -9,13 +9,13 @@ env = Environment(loader=FileSystemLoader(join_project_root("resources", "templa
 class AppArmorProfile:
     def __init__(
         self,
-        name: str = None,
+        name: str = "",
         path: str = None,
         flags: str = "complain",
         includes: List[str] = None,
         deny_rules: List[str] = None,
         disabled: bool = None,
-        mode: str = None,
+        mode: str = "disabled",
         rules: List[Tuple[str, str]] = None,
         template_name: str = "new_profile_template.j2",
         full_code: str = None

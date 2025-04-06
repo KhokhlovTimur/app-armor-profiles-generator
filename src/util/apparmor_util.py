@@ -1,9 +1,14 @@
+import logging
 import os
 import re
 import tempfile
 
 from src.util.command_executor_util import run_command
 
+def profile_name_from_path(path: str) -> str:
+    if path.startswith('/'):
+        path = path[1:]
+    return path.replace('/', '.')
 
 def extract_profile_path(text: str) -> str | None:
     match = re.search(r'^\s*profile\s+(?:(\S+)\s+)?(/[^ \{]+)', text, re.MULTILINE)
@@ -18,22 +23,10 @@ def extract_profile_path(text: str) -> str | None:
 
 def extract_profile_body(profile_text: str) -> str:
     start_index = profile_text.find("{")
-    if start_index == -1:
+    end_index = profile_text.rfind("}")
+    if start_index == -1 or end_index == -1 or end_index <= start_index:
         return ""
-
-    brace_count = 1
-    index = start_index + 1
-
-    while index < len(profile_text):
-        if profile_text[index] == '{':
-            brace_count += 1
-        elif profile_text[index] == '}':
-            brace_count -= 1
-            if brace_count == 0:
-                return profile_text[start_index + 1:index].strip()
-        index += 1
-
-    return ""
+    return profile_text[start_index + 1:end_index].strip()
 
 def parse_profile_rules(profile_text: str) -> dict:
     body = extract_profile_body(profile_text)
@@ -110,6 +103,7 @@ def replace_profile_body_from_file(profile_path: str, new_body_text: str):
         tmp.write(updated_content)
         tmp_path = tmp.name
 
+    logging.info(f"Updating tmp profile body from {profile_path}")
     try:
         return run_command([
             "sudo", "-S", "cp", tmp_path, profile_path
@@ -121,6 +115,12 @@ def replace_profile_body_from_file(profile_path: str, new_body_text: str):
 def extract_profile_name(profile_str: str) -> str | None:
     match = re.search(r'^\s*profile\s+([^\s]+)', profile_str, re.MULTILINE)
     if match:
-        return match.group(1)
+        name = match.group(1)
+        if profile_str.startswith("/"):
+            return name[1:]
+        return name
     return None
+
+def find_profile_name_by_binary_path(path: str) -> str:
+    res = run_command(["sudo", "-S", "grep", "-R", path, prof])
 

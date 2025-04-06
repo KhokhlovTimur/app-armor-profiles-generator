@@ -8,13 +8,13 @@ from src.model.apparmor_profile import AppArmorProfile
 from src.pages.create_profile.profile_page_template import ProfilePageTemplate, LineNumberArea
 from src.pages.executable import ExecutablePage
 from src.pages.util.path_completer import ExecutablePathCompleter
-from src.util.apparmor_util import replace_profile_body_from_string, parse_profile_rules
+from src.util.apparmor_util import replace_profile_body_from_string, parse_profile_rules, profile_name_from_path
 from src.util.command_executor_util import launch_command_interactive
 from src.util.file_util import load_stylesheet, join_project_root, load_stylesheet_buttons
 
 
 class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
-    profile_template_path = join_project_root("resources", "profile_template.txt")
+    # profile_template_path = join_project_root("resources", "profile_template.txt")
     __profile_styles = "add_profile_page.qss"
     _tmp_profile_name = "tmp_profile"
     _instance = None
@@ -38,7 +38,9 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.template_edit.setObjectName("edit_text_area")
         load_stylesheet(self.__profile_styles, self.template_edit)
         self.profile = profile
+        self.profile.name = ""
         self.profile_code = profile.render()
+        self.profile.name = profile_name_from_path(profile.path)
         self.template_edit.setPlainText(self.profile_code)
         self.template_edit.setPlaceholderText("Enter or edit template...")
 
@@ -94,9 +96,6 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
             self.profile.name = self.file_path.split('/')[-1]
             self.profile.path = self.file_path
             self.template_edit.setPlainText(self.profile.render())
-
-    def get_default_template(self):
-        return ''.join(open(CreateProfilePage.profile_template_path).readlines())
 
     def _add_buttons(self):
         self.increase_font_button = QPushButton("Increase font size", self)
