@@ -1,0 +1,18 @@
+QTextEdit {
+                background-color: #121212;
+                color: #00ff00;
+                font-family: Consolas, monospace;
+                font-size: 13px;
+                padding: 6px;
+}
+
+QLineEdit {
+                background-color: #121212;
+                color: #ffffff;
+                font-family: Consolas, monospace;
+                font-size: 13px;
+                border: 1px solid #444;
+                padding: 6px;
+}
+
+background-color: #121212;

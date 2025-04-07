@@ -121,6 +121,6 @@ def extract_profile_name(profile_str: str) -> str | None:
         return name
     return None
 
-def find_profile_name_by_binary_path(path: str) -> str:
-    res = run_command(["sudo", "-S", "grep", "-R", path, prof])
+# def find_profile_name_by_binary_path(path: str) -> str:
+#     res = run_command(["sudo", "-S", "grep", "-R", path, prof])
 

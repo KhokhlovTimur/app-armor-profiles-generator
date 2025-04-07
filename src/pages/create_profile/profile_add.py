@@ -3,10 +3,11 @@ from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayou
     QMessageBox, QComboBox, QLineEdit, QFormLayout, QDialogButtonBox, QTableWidgetItem, QSizePolicy, \
     QHeaderView, QTableWidget, QStackedWidget
 
-from src.apparmor.apparmor_parser import tmp_profile_name, edit_profile_body_and_check
+from src.apparmor.apparmor_parser import TMP_PROFILE_NAME, edit_profile_body_and_check
 from src.model.apparmor_profile import AppArmorProfile
 from src.pages.create_profile.profile_page_template import ProfilePageTemplate, LineNumberArea
 from src.pages.executable import ExecutablePage
+from src.pages.util.custom_console import SandboxConsole
 from src.pages.util.path_completer import ExecutablePathCompleter
 from src.util.apparmor_util import replace_profile_body_from_string, parse_profile_rules, profile_name_from_path
 from src.util.command_executor_util import launch_command_interactive
@@ -38,9 +39,11 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.template_edit.setObjectName("edit_text_area")
         load_stylesheet(self.__profile_styles, self.template_edit)
         self.profile = profile
-        self.profile.name = ""
+        if self.profile.path is not None:
+            self.profile.name = ""
         self.profile_code = profile.render()
-        self.profile.name = profile_name_from_path(profile.path)
+        if self.profile.path is not None:
+            self.profile.name = profile_name_from_path(profile.path)
         self.template_edit.setPlainText(self.profile_code)
         self.template_edit.setPlaceholderText("Enter or edit template...")
 
@@ -123,9 +126,9 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.finished.emit()
         self.deleteLater()
 
-    def launch_profile_interactive(self, bin_path, profile_as_string=None):
-        output = edit_profile_body_and_check(self.template_edit.toPlainText(), tmp_profile_name)
-        self._check_profile(output, profile_as_string)
+    def run_in_sandbox(self, bin_path, profile_as_string=None):
+        output = edit_profile_body_and_check(self.template_edit.toPlainText(), TMP_PROFILE_NAME)
+        self._check_profile(output, profile_as_string, "Successful check.")
 
         if output.returncode != 0:
             self.error_message = self.filter_stderr(
@@ -133,22 +136,8 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
             QMessageBox.warning(self, "Error", f"{self.error_message}")
             return
 
-        launch_command_interactive(f"aa-exec -p {tmp_profile_name} -- {bin_path}; exec bash", self)
-
-        confirm = QMessageBox.question(
-            self,
-            "Сохранить изменения?",
-            "Сохранить изменения в профиль?",
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            QMessageBox.Save
-        )
-
-        if confirm == QMessageBox.Save:
-            self.save_profile()
-        elif confirm == QMessageBox.Discard:
-            print("Изменения не сохранены.")
-        else:
-            print("Действие отменено.")
+        self.console = SandboxConsole()
+        self.console.run_script(self, exec_func=self._on_sandbox_finished)
 
     def toggle_view_mode(self, index):
         if index == 0:
@@ -172,6 +161,24 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
             self.add_rule_btn.setVisible(True)
             self.remove_rule_btn.setVisible(True)
             self.show_table_view()
+
+    def _on_sandbox_finished(self) -> QMessageBox:
+        confirm = QMessageBox.question(
+            self,
+            "Save changes?",
+            "Save changes?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save
+        )
+
+        if confirm == QMessageBox.Save:
+            self.save_profile()
+        elif confirm == QMessageBox.Discard:
+            print("Изменения не сохранены.")
+        else:
+            print("Действие отменено.")
+
+        return confirm
 
     def show_table_view(self):
         parsed = parse_profile_rules(self.profile_code)

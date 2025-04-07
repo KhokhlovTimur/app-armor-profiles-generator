@@ -49,10 +49,10 @@ class ProfilePageTemplate(QWidget):
         try_save = validate_and_load_profile(profile_data, extract_profile_name(profile_data))
         self._check_profile(try_save, profile_as_string)
 
-    def _check_profile(self, command_res, profile_as_string=None):
+    def _check_profile(self, command_res, profile_as_string=None, success_msg="Профиль успешно сохранен и загружен!"):
         self.error_message = None
         if command_res.returncode == 0:
-            QMessageBox.information(self, "Успех", f"Профиль успешно сохранен и загружен!")
+            QMessageBox.information(self, "Success", success_msg)
             if profile_as_string is None:
                 pass
             else:

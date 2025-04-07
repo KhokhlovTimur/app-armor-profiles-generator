@@ -55,14 +55,20 @@ class EditProfilePage(CreateProfilePage):
         self.back_button.clicked.connect(self.go_back)
         self.buttons_layout.addWidget(self.back_button)
 
-    def launch_profile_interactive(self, bin_path, profile_as_string=None):
-        super().launch_profile_interactive(bin_path, self.template_edit.toPlainText())
+    def run_in_sandbox(self, bin_path, profile_as_string=None):
+        super().run_in_sandbox(bin_path, self.template_edit.toPlainText())
 
     def _launch_app(self):
         path = extract_profile_path(self.template_edit.toPlainText())
         if path is None:
             QMessageBox.warning(self, "Error", "Binary not found")
             return
-        self.launch_profile_interactive(path)
+        self.run_in_sandbox(path)
+
+    def _on_sandbox_finished(self):
+        confirm = super()._on_sandbox_finished()
+        if confirm == QMessageBox.Cancel:
+            return
         self.deleteLater()
         PagesHolder().get_content_area().removeWidget(self)
+

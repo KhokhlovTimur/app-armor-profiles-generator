@@ -29,13 +29,13 @@ def launch_command_interactive(cmd, parent, exec_func=None, is_run: bool=True) -
     process = QProcess(parent)
 
     dialog = QDialog(parent)
-    dialog.setWindowTitle("Интерактивный запуск")
+    dialog.setWindowTitle("")
     dialog.setModal(True)
     dialog.setFixedSize(360, 140)
     dialog.setWindowFlags(dialog.windowFlags())
 
     layout = QVBoxLayout(dialog)
-    label = QLabel("Работайте с приложением.\nНажмите 'Завершить', когда закончите.")
+    label = QLabel("Use the application.\nClick 'Finish' when you are done.")
     label.setAlignment(Qt.AlignCenter)
     layout.addWidget(label)
 
@@ -43,7 +43,7 @@ def launch_command_interactive(cmd, parent, exec_func=None, is_run: bool=True) -
     progress.setRange(0, 0)
     layout.addWidget(progress)
 
-    done_button = QPushButton("✅ Завершить")
+    done_button = QPushButton("Finish")
     done_button.clicked.connect(lambda: (dialog.accept(), exec_func())[1] if exec_func else dialog.accept())
     layout.addWidget(done_button)
 

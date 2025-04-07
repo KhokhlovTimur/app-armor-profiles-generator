@@ -10,7 +10,7 @@ from src.util.apparmor_util import replace_profile_body_from_file, replace_full_
 from src.util.command_executor_util import run_command
 from src.util.file_util import join_project_root
 
-tmp_profile_name = "tmp_profile"
+TMP_PROFILE_NAME = "tmp_profile"
 
 def validate_profile(profile_string: str):
     try:
@@ -32,7 +32,7 @@ def save_and_add_profile(profile_string: str, profile_filename: str):
     try:
         profile_filename = profile_filename.lstrip("/").replace("/", ".")
         filepath = f"{PROFILES_PATH}/{profile_filename}"
-        tmp_filepath = f"{PROFILES_PATH}/{tmp_profile_name}"
+        tmp_filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
         text_before = replace_profile_body_from_file(tmp_filepath, profile_string).stdout
 
         parser_result = run_command([
@@ -42,7 +42,7 @@ def save_and_add_profile(profile_string: str, profile_filename: str):
         logging.info(f"Updating tmp profile ")
 
         if parser_result.returncode != 0:
-            filepath = f"{PROFILES_PATH}/{tmp_profile_name}"
+            filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
             run_command([
                 "sudo", "-S", "cp", join_project_root("resources", "tmp_profile"), filepath
             ])
@@ -88,7 +88,7 @@ def validate_and_load_profile(profile_string: str, profile_filename: str):
 
 def edit_profile_body_and_check(profile_string: str, profile_filename: str):
     try:
-        tmp_filepath = f"{PROFILES_PATH}/{tmp_profile_name}"
+        tmp_filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
         filepath = f"{PROFILES_PATH}/{profile_filename}"
 
         text_before = replace_profile_body_from_file(tmp_filepath, profile_string).stdout
@@ -98,7 +98,7 @@ def edit_profile_body_and_check(profile_string: str, profile_filename: str):
         ])
 
         if parser_result.returncode != 0:
-            filepath = f"{PROFILES_PATH}/{tmp_profile_name}"
+            filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
             run_command([
                 "sudo", "-S", "cp", join_project_root("resources", "tmp_profile"), filepath
             ])
@@ -121,7 +121,7 @@ def edit_profile_body_and_check(profile_string: str, profile_filename: str):
         return subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr=str(e))
 
 def load_tmp_profile():
-    filepath = f"{PROFILES_PATH}/{tmp_profile_name}"
+    filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
     result = run_command(["sudo", "-S", "cp", join_project_root("resources", "tmp_profile"), filepath])
 
     result = run_command([

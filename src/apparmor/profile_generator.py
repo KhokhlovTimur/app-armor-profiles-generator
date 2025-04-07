@@ -55,7 +55,7 @@ class ProfileFromLogsGenerator(QObject):
 
         try:
             subprocess.run(
-                ["bash", join_project_root("scripts/", "redirect_logs"), self.profile.path, self.start_time, self.tmp_logs_path],
+                ["bash", join_project_root("scripts/", "redirect_logs.sh"), self.profile.path, self.start_time, self.tmp_logs_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )

@@ -10,5 +10,5 @@ PROFILE_NAME="$1"
 SINCE="$2"
 OUTPUT_FILE="$3"
 
-journalctl -g "$PROFILE_NAME" --since "$SINCE" --no-pager -k --output=short-iso-precise | grep 'apparmor=' > "$OUTPUT_FILE"
+journalctl -g 'profile=\"'$PROFILE_NAME'\"' --since "$SINCE" --no-pager -k --output=short-iso-precise | grep 'apparmor=' > "$OUTPUT_FILE"
 
