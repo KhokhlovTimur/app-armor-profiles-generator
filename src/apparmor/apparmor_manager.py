@@ -25,14 +25,12 @@ def read_apparmor_profile_by_name(profile_name, directory=PROFILES_PATH):
         if filename == profile_name or base_name == profile_name or filename.replace('/', '.') == profile_name:
             file_path = os.path.join(directory, filename)
             try:
-                # Пробуем обычное открытие
                 with open(file_path, 'r') as f:
                     return f.read()
             except PermissionError:
                 print(f"[!] Нет доступа к {file_path}, пробуем через sudo...")
 
                 try:
-                    # Пробуем прочитать через sudo
                     output = subprocess.check_output(["sudo", "cat", file_path], text=True)
                     return output
                 except Exception as e:
@@ -177,7 +175,6 @@ def change_profile_mode(profile_name: str, mode: str):
     except Exception as e:
         print(f"Ошибка при смене режима: {e}")
         return None
-
 
 def is_profile_disabled(profile_name: str, base_dir: str = PROFILES_PATH) -> bool:
     result = run_command(["sudo", "aa-status"])

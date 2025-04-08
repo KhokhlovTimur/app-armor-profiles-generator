@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import (
 from src.apparmor.apparmor_manager import get_profile_mode_by_name, change_profile_mode, get_logs_not_empty, \
     read_apparmor_profile_by_name
 from src.model.apparmor_profile import AppArmorProfile
-from src.pages.profile_edit import EditProfilePage
-from src.pages.page_holder import PagesHolder
+from src.ui.profile_edit import EditProfilePage
+from src.ui.page_holder import PagesHolder
 from src.util.apparmor_util import parse_profile_rules, extract_profile_path
 from src.util.file_util import load_stylesheet
 

@@ -3,10 +3,10 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTextEdit, QFileDialog, QMessageBox, QStackedWidget)
 
 from src.model.apparmor_profile import AppArmorProfile
-from src.pages.create_profile.profile_add import CreateProfilePage
-from src.pages.create_profile.profile_generator import GeneratorPage
+from src.ui.create_profile.profile_add import CreateProfilePage
+from src.ui.create_profile.profile_generator import GeneratorPage
 from src.util.file_util import load_stylesheet_buttons
-from src.pages.util.path_completer import ExecutablePathCompleter
+from src.ui.util.path_completer import ExecutablePathCompleter
 
 
 class SelectGenerateProfilePage(QWidget):

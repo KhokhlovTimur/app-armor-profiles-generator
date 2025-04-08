@@ -5,10 +5,10 @@ from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayou
 
 from src.apparmor.apparmor_parser import TMP_PROFILE_NAME, edit_profile_body_and_check
 from src.model.apparmor_profile import AppArmorProfile
-from src.pages.create_profile.profile_page_template import ProfilePageTemplate, LineNumberArea
-from src.pages.executable import ExecutablePage
-from src.pages.util.custom_console import SandboxConsole
-from src.pages.util.path_completer import ExecutablePathCompleter
+from src.ui.create_profile.profile_page_template import ProfilePageTemplate, LineNumberArea
+from src.ui.executable import ExecutablePage
+from src.ui.util.custom_console import SandboxConsole
+from src.ui.util.path_completer import ExecutablePathCompleter
 from src.util.apparmor_util import replace_profile_body_from_string, parse_profile_rules, profile_name_from_path
 from src.util.command_executor_util import launch_command_interactive
 from src.util.file_util import load_stylesheet, join_project_root, load_stylesheet_buttons

@@ -3,12 +3,15 @@ import os
 import re
 import tempfile
 
+from src.constants import PROFILES_PATH
 from src.util.command_executor_util import run_command
+
 
 def profile_name_from_path(path: str) -> str:
     if path.startswith('/'):
         path = path[1:]
     return path.replace('/', '.')
+
 
 def extract_profile_path(text: str) -> str | None:
     match = re.search(r'^\s*profile\s+(?:(\S+)\s+)?(/[^ \{]+)', text, re.MULTILINE)
@@ -21,12 +24,29 @@ def extract_profile_path(text: str) -> str | None:
 
     return None
 
+
+def get_profile_path_from_file(file_path: str) -> str | None:
+    try:
+        result = run_command(['sudo', '-S', 'cat', PROFILES_PATH + "/" + file_path])
+
+        if result.returncode != 0:
+            print(f"{result.stderr}")
+            return None
+
+        return extract_profile_path(result.stdout)
+
+    except Exception as e:
+        print(f"{e}")
+        return None
+
+
 def extract_profile_body(profile_text: str) -> str:
     start_index = profile_text.find("{")
     end_index = profile_text.rfind("}")
     if start_index == -1 or end_index == -1 or end_index <= start_index:
         return ""
     return profile_text[start_index + 1:end_index].strip()
+
 
 def parse_profile_rules(profile_text: str) -> dict:
     body = extract_profile_body(profile_text)
@@ -58,6 +78,7 @@ def parse_profile_rules(profile_text: str) -> dict:
         rules[path] = perms
 
     return rules
+
 
 def replace_profile_body_from_string(profile_as_string: str, new_body_text: str) -> str:
     match = re.search(r'(\{)(.*)(\})', profile_as_string, re.DOTALL)
@@ -112,6 +133,7 @@ def replace_profile_body_from_file(profile_path: str, new_body_text: str):
         os.remove(tmp_path)
         return text_before
 
+
 def extract_profile_name(profile_str: str) -> str | None:
     match = re.search(r'^\s*profile\s+([^\s]+)', profile_str, re.MULTILINE)
     if match:
@@ -121,6 +143,7 @@ def extract_profile_name(profile_str: str) -> str | None:
         return name
     return None
 
+
+
 # def find_profile_name_by_binary_path(path: str) -> str:
 #     res = run_command(["sudo", "-S", "grep", "-R", path, prof])
-

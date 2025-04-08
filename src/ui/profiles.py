@@ -5,8 +5,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 
 from src.apparmor.apparmor_manager import get_profiles_from_apparmor_d
-from src.pages.page_holder import PagesHolder
-from src.pages.profile_info import ProfileInfoPage
+from src.ui.page_holder import PagesHolder
+from src.ui.profile_info import ProfileInfoPage
 from src.util.file_util import load_stylesheet, load_stylesheet_buttons
 
 

@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
 
 from src.apparmor.credentials_holder import CredentialsHolder
 from src.apparmor.profile_generator import ProfileFromLogsGenerator
-from src.pages.executable import ExecutablePage
+from src.ui.executable import ExecutablePage
 from src.util.command_executor_util import launch_command_interactive
 from src.util.file_util import load_stylesheet, load_stylesheet_buttons
 

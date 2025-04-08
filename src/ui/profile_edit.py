@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import QPushButton, QMessageBox
 from src.apparmor.apparmor_manager import read_apparmor_profile_by_name
 from src.apparmor.apparmor_parser import edit_profile_body_and_check
 from src.model.apparmor_profile import AppArmorProfile
-from src.pages.create_profile.profile_add import CreateProfilePage
-from src.pages.page_holder import PagesHolder
+from src.ui.create_profile.profile_add import CreateProfilePage
+from src.ui.page_holder import PagesHolder
 from src.util.apparmor_util import extract_profile_path
 
 

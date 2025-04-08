@@ -5,9 +5,9 @@ from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QPropertyAnimation
 from PyQt5.QtWidgets import QGraphicsOpacityEffect
 
-from src.pages.create_profile.profile_create_start import StartGenerateProfilePage
-from src.pages.page_holder import PagesHolder
-from src.pages.side_menu import SideMenu
+from src.ui.create_profile.profile_create_start import StartGenerateProfilePage
+from src.ui.page_holder import PagesHolder
+from src.ui.side_menu import SideMenu
 from src.util.file_util import join_project_root, load_stylesheet_buttons
 
 

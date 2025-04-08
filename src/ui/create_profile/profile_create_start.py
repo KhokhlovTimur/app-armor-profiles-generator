@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QStackedWidget, QWidget
 
-from src.pages.create_profile.select_binary import SelectGenerateProfilePage
+from src.ui.create_profile.select_binary import SelectGenerateProfilePage
 
 class StartGenerateProfilePage(QWidget):
     def __init__(self):

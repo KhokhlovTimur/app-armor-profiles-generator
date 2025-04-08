@@ -5,13 +5,13 @@ from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QStackedWidget
 
 from src.apparmor.apparmor_parser import load_tmp_profile
 from src.apparmor.credentials_holder import CredentialsHolder
-from src.pages.apparmor_status import AppArmorStatusPage
-from src.pages.create_profile.profile_create_start import StartGenerateProfilePage
-from src.pages.new_binaries import NewBinariesHandler, NewBinariesPage
-from src.pages.page_holder import PagesHolder
-from src.pages.profile_constructor import ProfileGeneratorWidget
-from src.pages.profiles import ProfilesPage
-from src.pages.side_menu import SideMenu
+from src.ui.apparmor_status import AppArmorStatusPage
+from src.ui.create_profile.profile_create_start import StartGenerateProfilePage
+from src.ui.new_binaries import NewBinariesHandler, NewBinariesPage
+from src.ui.page_holder import PagesHolder
+from src.ui.profile_wizard.main_wizard import AppArmorWizard
+from src.ui.profiles import ProfilesPage
+from src.ui.side_menu import SideMenu
 from src.util.binary_watcher import Worker
 
 
@@ -49,12 +49,11 @@ class MainWindow(QWidget):
         self.apparmor_status_page = AppArmorStatusPage()
         self.profiles_page = ProfilesPage()
         holder.profiles = self.profiles_page.all_items
-        # self.add_profile_page = AddProfilePage()
         self.menu = SideMenu.instance()
         holder.side_menu = self.menu
         self.generator_page = StartGenerateProfilePage()
         self.new_binaries_page = NewBinariesPage(self.generator_page)
-        self.constructor = ProfileGeneratorWidget()
+        self.constructor = AppArmorWizard()
 
         self.content_area.addWidget(self.apparmor_status_page)
         self.content_area.addWidget(self.profiles_page)

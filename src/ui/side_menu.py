@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QFrame, QSpacerItem, QSizePolicy
 from PyQt5.QtGui import QIcon
 
-from src.pages.page_holder import PagesHolder
+from src.ui.page_holder import PagesHolder
 from src.util.file_util import load_stylesheet, join_project_root
 from src.util.sys_util import close_app
 
@@ -31,7 +31,7 @@ class SideMenu(QWidget):
         # self.add_profile_button = self.__create_menu_btn("Create Profile", join_project_root("resources", "icons", "1add_profile.png"), 2)
         self.new_binaries_button = self.__create_menu_btn("New Binaries", join_project_root("resources", "icons", "1binaries.png"), 2)
         self.generate_button = self.__create_menu_btn("Add Profile", "icons/logs.png", 3)
-        self.constructor_button = self.__create_menu_btn("Profile Constructor", "icons/logs.png", 4)
+        self.constructor_button = self.__create_menu_btn("Profile Wizard", "icons/logs.png", 4)
         # self.about_button = self.__create_menu_btn("About", "icons/settings.png", 5)
         # self.settings_button = self.__create_menu_btn("Settings", "icons/settings.png", 6)
 
