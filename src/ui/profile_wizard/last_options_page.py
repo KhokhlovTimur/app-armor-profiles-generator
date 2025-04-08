@@ -16,6 +16,7 @@ class LastOptionsPage(AppArmorWizardPage):
         self.pages: List[AppArmorWizardPage] = []
 
         layout = QVBoxLayout()
+        self.save_connected = False
         self.preview_text_edit = QTextEdit()
         self.preview_text_edit.setReadOnly(True)
         layout.addWidget(self.preview_text_edit)
@@ -26,15 +27,23 @@ class LastOptionsPage(AppArmorWizardPage):
         super().initializePage()
         self.generate_preview()
 
-        self.wizard().setOption(QWizard.HaveCustomButton1, True)
-        self.wizard().setButtonText(QWizard.CustomButton1, "Save")
-        self.wizard().button(QWizard.CustomButton1).clicked.connect(self.save_profile)
+        wizard = self.wizard()
 
-        self.wizard().setOption(QWizard.HaveCustomButton2, True)
-        self.wizard().setButtonText(QWizard.CustomButton2, "Run in sandbox")
-        self.wizard().button(QWizard.CustomButton2).clicked.connect(self.run_in_sandbox)
+        wizard.setOption(QWizard.HaveCustomButton1, True)
+        wizard.setButtonText(QWizard.CustomButton1, "Save")
 
-        self.wizard().setButtonLayout([
+        if not hasattr(self, "save_connected") or not self.save_connected:
+            wizard.button(QWizard.CustomButton1).clicked.connect(self.save_profile)
+            self._save_connected = True
+
+        wizard.setOption(QWizard.HaveCustomButton2, True)
+        wizard.setButtonText(QWizard.CustomButton2, "Run in sandbox")
+
+        if not hasattr(self, "save_connected") or not self.save_connected:
+            wizard.button(QWizard.CustomButton2).clicked.connect(self.run_in_sandbox)
+            self.save_connected = True
+
+        wizard.setButtonLayout([
             QWizard.Stretch,
             QWizard.BackButton,
             QWizard.CustomButton1,
@@ -59,7 +68,12 @@ class LastOptionsPage(AppArmorWizardPage):
         pass
 
     def generate_preview(self):
-        self.pages = [self.wizard().page(pid) for pid in self.wizard().pageIds()]
+        self.pages = sorted(
+            [self.wizard().page(pid) for pid in self.wizard().pageIds()],
+            key=lambda l_page: l_page.get_priority(),
+            reverse=True
+        )
+
         profile_text = ""
         fragments = []
         for page in self.pages:
@@ -79,6 +93,7 @@ class LastOptionsPage(AppArmorWizardPage):
         try_save = validate_and_load_profile(profile_data, extract_profile_name(profile_data))
         if try_save.returncode == 0:
             QMessageBox.information(self, "Success", "Profile saved successfully")
+            self.wizard().deleteLater()
         else:
             self.error_message = self.filter_stderr(
                 try_save.stderr) if try_save.stderr else "Неизвестная ошибка при проверке профиля."

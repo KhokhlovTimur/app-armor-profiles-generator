@@ -53,11 +53,15 @@ class NetworkRulesPage(AppArmorWizardPage):
         add_button = QPushButton("Добавить")
         add_button.clicked.connect(self.add_entry)
 
+        remove_button = QPushButton("Удалить выбранное")
+        remove_button.clicked.connect(self.remove_selected_entry)
+
         form_layout.addWidget(self.perms_input)
         form_layout.addWidget(self.domain_input)
         form_layout.addWidget(self.type_input)
         form_layout.addWidget(self.protocol_input)
         form_layout.addWidget(add_button)
+        form_layout.addWidget(remove_button)
 
         self.layout.addWidget(QLabel("Permissions:"))
         self.layout.addWidget(self.perms_input)
@@ -73,6 +77,12 @@ class NetworkRulesPage(AppArmorWizardPage):
         self.perms_combo.activated.connect(self.append_permission)
 
         self.setLayout(self.layout)
+
+    def remove_selected_entry(self):
+        selected = self.entry_list.currentRow()
+        if selected >= 0:
+            self.entry_list.takeItem(selected)
+            del self.entries[selected]
 
     def append_permission(self):
         perm = self.perms_combo.currentText()

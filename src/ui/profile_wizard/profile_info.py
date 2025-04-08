@@ -60,5 +60,5 @@ class ProfileInfoPage(AppArmorWizardPage):
 
     def get_profile_fragment(self) -> str:
         profile_name = self.app_path_line_edit.text().strip()
-        flags = self.profile_flags_line_edit.text() if f"flags=({self.profile_flags_line_edit.text()}) " else ""
+        flags = f"flags=({self.profile_flags_line_edit.text()}) "  if self.profile_flags_line_edit.text() else ""
         return f"profile {profile_name} {flags}{{\n"

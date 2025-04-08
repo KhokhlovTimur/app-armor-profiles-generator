@@ -26,7 +26,7 @@ class AppArmorWizard(QWizard):
         self.flags = ""
 
         self.last_page = LastOptionsPage()
-        self.pages: List[AppArmorWizardPage]  = [ProfileInfoPage(), CapabilitiesPage(), TunablesPage(), AbstractionsPage(), NetworkRulesPage(), ExecuteRulesPage(), MountRulesPage(), AdvancedRulesPage(), self.last_page]
+        self.pages: List[AppArmorWizardPage]  = [ProfileInfoPage(), TunablesPage(), CapabilitiesPage(), AbstractionsPage(), NetworkRulesPage(), ExecuteRulesPage(), MountRulesPage(), AdvancedRulesPage(), self.last_page]
 
         for page in self.pages:
             page_id = self.addPage(page)

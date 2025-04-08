@@ -20,53 +20,56 @@ class TunablesPage(AppArmorWizardPage):
 
         layout.addWidget(QLabel("Поиск по tunables:"))
 
-        self.searchLineEdit = QLineEdit()
-        self.searchLineEdit.setPlaceholderText("Введите часть имени...")
-        layout.addWidget(self.searchLineEdit)
+        self.search_line_edit = QLineEdit()
+        self.search_line_edit.setPlaceholderText("Введите часть имени...")
+        layout.addWidget(self.search_line_edit)
 
-        self.tunablesListWidget = QListWidget()
-        layout.addWidget(self.tunablesListWidget)
+        self.tunables_list_widget = QListWidget()
+        layout.addWidget(self.tunables_list_widget)
 
-        self.previewTextEdit = QTextEdit()
-        self.previewTextEdit.setReadOnly(True)
-        layout.addWidget(self.previewTextEdit)
+        self.preview_text_edit = QTextEdit()
+        self.preview_text_edit.setReadOnly(True)
+        layout.addWidget(self.preview_text_edit)
 
         self.setLayout(layout)
 
-        self.searchLineEdit.textChanged.connect(self.filterTunables)
-        self.tunablesListWidget.itemClicked.connect(self.showTunableContent)
+        self.search_line_edit.textChanged.connect(self.filter_tunables)
+        self.tunables_list_widget.itemClicked.connect(self.show_tunable_content)
 
-        self.populateTunablesList()
+        self.populate_tunables_list()
 
-    def populateTunablesList(self):
-        self.tunablesListWidget.clear()
+    def populate_tunables_list(self):
+        self.tunables_list_widget.clear()
         for name in sorted(self.filtered_keys):
             item = QListWidgetItem(name)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
             item.setCheckState(Qt.Unchecked)
-            self.tunablesListWidget.addItem(item)
+            self.tunables_list_widget.addItem(item)
 
-    def filterTunables(self, text):
+    def filter_tunables(self, text):
         text = text.lower()
         self.filtered_keys = [key for key in self.tunables if text in key.lower()]
-        self.populateTunablesList()
+        self.populate_tunables_list()
 
-    def showTunableContent(self, item):
+    def show_tunable_content(self, item):
         name = item.text()
         content = self.tunables.get(name, "")
-        self.previewTextEdit.setPlainText(content)
+        self.preview_text_edit.setPlainText(content)
 
     def get_profile_fragment(self) -> str:
         selected = []
-        for i in range(self.tunablesListWidget.count()):
-            item = self.tunablesListWidget.item(i)
+        for i in range(self.tunables_list_widget.count()):
+            item = self.tunables_list_widget.item(i)
             if item.checkState() == Qt.Checked:
                 selected.append(item.text())
 
         if not selected:
             return ""
 
-        fragment = "  # Используемые tunables\n"
+        fragment = "\n"
         for name in selected:
-            fragment += f"  #include <tunables/{name}>\n"
+            fragment += f"include <tunables/{name}>\n"
         return fragment
+
+    def get_priority(self):
+        return 100

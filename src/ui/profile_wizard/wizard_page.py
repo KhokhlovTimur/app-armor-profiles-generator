@@ -15,5 +15,8 @@ class AppArmorWizardPage(QWizardPage):
     def set_page_id(self, page_id):
         self.page_id = page_id
 
+    def get_priority(self):
+        return 0
+
     def get_profile_fragment(self) -> str:
         return ""
