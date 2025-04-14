@@ -9,13 +9,19 @@ from src.util.apparmor_util import extract_profile_path
 
 
 class EditProfilePage(CreateProfilePage):
-    def __init__(self, profile: AppArmorProfile, parent):
+    def __init__(self, profile: AppArmorProfile, parent, is_custom_profile:bool=False):
         super().__init__(profile)
         self.setWindowTitle("Edit Profile")
         self.profile = profile
         self.edit_profile_text = None
         self.parent = parent
-        self.profile_code = read_apparmor_profile_by_name(self.profile.name)
+        self.is_custom_profile = is_custom_profile
+
+        if not is_custom_profile:
+            self.profile_code = read_apparmor_profile_by_name(self.profile.name)
+        else:
+            self.profile_code = profile.render()
+
         self.template_edit.setPlainText(self.profile_code)
 
     def go_back(self):
@@ -23,8 +29,11 @@ class EditProfilePage(CreateProfilePage):
         PagesHolder().get_content_area().removeWidget(self)
 
     def save_profile(self, profile_as_string=None):
-        command = edit_profile_body_and_check(self.template_edit.toPlainText(), self.profile.name)
-        self._check_profile(command)
+        if self.is_custom_profile:
+            command = edit_profile_body_and_check(self.template_edit.toPlainText(), self.profile.name, self.profile.tunables)
+        else:
+            command = edit_profile_body_and_check(self.template_edit.toPlainText(), self.profile.name)
+        self.check_profile(command)
         if self.error_message is None:
             PagesHolder().get_content_area().setCurrentWidget(self.parent)
             self.deleteLater()

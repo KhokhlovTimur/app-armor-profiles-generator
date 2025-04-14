@@ -128,7 +128,7 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
 
     def run_in_sandbox(self, bin_path, profile_as_string=None):
         output = edit_profile_body_and_check(self.template_edit.toPlainText(), TMP_PROFILE_NAME)
-        self._check_profile(output, profile_as_string, "Successful check.")
+        self.check_profile(output, profile_as_string, "Successful check.")
 
         if output.returncode != 0:
             self.error_message = self.filter_stderr(

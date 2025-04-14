@@ -7,10 +7,13 @@ from PyQt5.QtWidgets import (
 
 from src.apparmor.apparmor_manager import get_profile_mode_by_name, change_profile_mode, get_logs_not_empty, \
     read_apparmor_profile_by_name
+from src.apparmor.apparmor_parser import delete_profile_from_kernel
+from src.constants import PROFILES_PATH
 from src.model.apparmor_profile import AppArmorProfile
 from src.ui.profile_edit import EditProfilePage
 from src.ui.page_holder import PagesHolder
-from src.util.apparmor_util import parse_profile_rules, extract_profile_path
+from src.util.apparmor_util import parse_profile_rules, extract_profile_path, delete_profile
+from src.util.command_executor_util import check_command_result
 from src.util.file_util import load_stylesheet
 
 
@@ -70,8 +73,12 @@ class ProfileInfoPage(QWidget):
         self.disable_btn.setObjectName("top_btn")
         self.disable_btn.clicked.connect(self.disable_or_enable_profile)
 
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setObjectName("top_btn")
+        self.delete_btn.clicked.connect(self.delete_profile)
+
         for btn in [self.mode_selector, self.apply_mode_btn, self.cancel_mode_btn, self.change_mode_btn,
-                    self.disable_btn]:
+                    self.disable_btn, self.delete_btn]:
             load_stylesheet("buttons.qss", btn)
             title_bar.addWidget(btn)
 
@@ -265,6 +272,14 @@ class ProfileInfoPage(QWidget):
     def closeEvent(self, event):
         self.deleteLater()
         event.accept()
+
+    def delete_profile(self):
+        var: bool = check_command_result(self, delete_profile_from_kernel(PROFILES_PATH + "/" + self.profile.name))
+        if var:
+            res = delete_profile(self.profile.name)
+            if res.returncode == 0:
+                PagesHolder().get_content_area().setCurrentWidget(self.parent)
+                self.deleteLater()
 
     def display_logs(self, logs: list[str]):
         if self.logs_layout is None or sip.isdeleted(self.logs_layout):

@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 from operator import contains
@@ -69,3 +70,18 @@ def launch_command_interactive(cmd, parent, exec_func=None, is_run: bool=True) -
     dialog.exec_()
 
     return process
+
+def filter_err(stderr: str) -> str:
+    stderr = stderr.strip()
+    stderr = re.sub(r'^\[sudo\] пароль для .*?:\s*', '', stderr)
+    return stderr
+
+def check_command_result(parent, res) -> bool:
+    if res.returncode == 0:
+        QMessageBox.information(parent, "Success", "Completed successfully")
+        return True
+    else:
+        parent.error_message = filter_err(
+            res.stderr) if res.stderr else "Неизвестная ошибка при проверке профиля."
+        QMessageBox.warning(parent, "Ошибка", f"Ошибка в профиле:\n{parent.error_message}")
+        return False

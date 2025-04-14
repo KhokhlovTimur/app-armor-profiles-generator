@@ -1,6 +1,10 @@
 abi <abi/4.0>,
 include <tunables/global>
 
+{% for include in tunables %}
+include <{{ include }}>
+{% endfor %}
+
 profile {{ name }} {{ app_path }} flags=({{ flags }}) {
   {% for include in includes %}
   include <{{ include }}>
@@ -10,8 +14,12 @@ profile {{ name }} {{ app_path }} flags=({{ flags }}) {
   deny {{ path }} rw,
   {% endfor %}
 
+  {% for path in all_rules %}
+  {{ path }},
+  {% endfor %}
+
   {% for path, perms in rules %}
-  {{ path }} {{ perms }},
+  {{ path }} {{ perms }}
   {% endfor %}
  }
 

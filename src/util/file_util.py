@@ -2,18 +2,41 @@ import datetime
 import os.path
 import re
 
-from src.constants import PROJECT_ROOT
+from src.constants import PROJECT_ROOT, PROFILES_PATH
+
 
 def join_project_root(*args):
     return os.path.join(PROJECT_ROOT, *args)
+
 
 def load_stylesheet(file_name, elem):
     __path = join_project_root("resources", "styles/")
     with open(__path + file_name, "r") as file:
         elem.setStyleSheet(file.read())
 
+
 def load_stylesheet_buttons(elem):
     load_stylesheet("buttons.qss", elem)
+
+
+def expand_apparmor_braces(pattern: str) -> list[str]:
+    brace_pattern = re.compile(r'\{([^}]+)\}')
+    match = brace_pattern.search(pattern)
+
+    if not match:
+        return [pattern]
+
+    options = match.group(1).split(',')
+    prefix = pattern[:match.start()]
+    suffix = pattern[match.end():]
+
+    results = []
+    for opt in options:
+        expanded = prefix + opt + suffix
+        results.extend(expand_apparmor_braces(expanded))
+
+    return results
+
 
 def get_profile_file_timestamp(profile_name: str) -> dict:
     result = {}
@@ -36,12 +59,14 @@ def get_profile_file_timestamp(profile_name: str) -> dict:
 
     return result
 
+
 def get_profile_created_or_modified_date(profile_name: str):
     res = get_profile_file_timestamp(profile_name=profile_name)
     if res["modified"] is not None:
         return res["modified"].strftime("%Y-%m-%d %H:%M:%S")
     else:
         return res["created"].strftime("%Y-%m-%d %H:%M:%S")
+
 
 def is_binary_executable(b_path: str) -> bool:
     if not os.path.isfile(b_path):
@@ -51,4 +76,3 @@ def is_binary_executable(b_path: str) -> bool:
         return False
 
     return True
-

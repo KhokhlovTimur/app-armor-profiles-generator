@@ -12,6 +12,7 @@ from src.util.file_util import join_project_root
 
 TMP_PROFILE_NAME = "tmp_profile"
 
+
 def validate_profile(profile_string: str):
     try:
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
@@ -28,7 +29,8 @@ def validate_profile(profile_string: str):
         print(f"Ошибка при проверке профиля: {e}")
         return subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr=str(e))
 
-def save_and_add_profile(profile_string: str, profile_filename: str):
+
+def save_and_add_profile(profile_string: str, profile_filename: str, tunables=None):
     try:
         profile_filename = profile_filename.lstrip("/").replace("/", ".")
         filepath = f"{PROFILES_PATH}/{profile_filename}"
@@ -71,12 +73,26 @@ def save_and_add_profile(profile_string: str, profile_filename: str):
         print(f"Ошибка при сохранении/добавлении: {e}")
         return subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr=str(e))
 
+
+def delete_profile_from_kernel(path: str):
+    res = run_command([
+        "sudo", "-S", "apparmor_parser", "-R", path
+    ])
+    if res.returncode == 0:
+        logging.info(f"Profile {path} is deleted")
+    else:
+        logging.error(res.stderr)
+
+    return res
+
+
 def filter_stderr(stderr: str) -> str:
     stderr = stderr.strip()
     stderr = re.sub(r'^\[sudo\] пароль для .*?:\s*', '', stderr)
     return stderr
 
-def validate_and_load_profile(profile_string: str, profile_filename: str):
+
+def validate_and_load_profile(profile_string: str, profile_filename: str, tunables=None):
     result = save_and_add_profile(profile_string, profile_filename)
     if result.returncode == 0:
         logging.info(f"Profile {profile_filename} is loaded.")
@@ -86,12 +102,13 @@ def validate_and_load_profile(profile_string: str, profile_filename: str):
         print(filter_stderr(result.stderr))
     return result
 
-def edit_profile_body_and_check(profile_string: str, profile_filename: str):
+
+def edit_profile_body_and_check(profile_string: str, profile_filename: str, tunables=None):
     try:
         tmp_filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
         filepath = f"{PROFILES_PATH}/{profile_filename}"
 
-        text_before = replace_profile_body_from_file(tmp_filepath, profile_string).stdout
+        text_before = replace_profile_body_from_file(tmp_filepath, profile_string, tunables).stdout
 
         parser_result = run_command([
             "sudo", "-S", "apparmor_parser", "-r", tmp_filepath
@@ -120,13 +137,13 @@ def edit_profile_body_and_check(profile_string: str, profile_filename: str):
         print(f"Error editing profile: {e}")
         return subprocess.CompletedProcess(args=[], returncode=1, stdout='', stderr=str(e))
 
+
 def load_tmp_profile():
     filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
-    result = run_command(["sudo", "-S", "cp", join_project_root("resources", "tmp_profile"), filepath])
+    result = run_command(["sudo", "-S", "cp", join_project_root("resources/", "templates/", "tmp_profile"), filepath])
 
     result = run_command([
         "sudo", "-S", "apparmor_parser", "-r", filepath
     ])
     reload_apparmor()
     return
-

@@ -6,24 +6,31 @@ from src.util.file_util import join_project_root
 
 env = Environment(loader=FileSystemLoader(join_project_root("resources", "templates")))
 
+
 class AppArmorProfile:
     def __init__(
-        self,
-        name: str = "",
-        path: str = None,
-        flags: str = "complain",
-        includes: List[str] = None,
-        deny_rules: List[str] = None,
-        disabled: bool = None,
-        mode: str = "disabled",
-        rules: List[Tuple[str, str]] = None,
-        template_name: str = "new_profile_template.j2",
-        full_code: str = None
+            self,
+            name: str = "",
+            path: str = None,
+            flags: str = "complain",
+            includes=None,
+            tunables=None,
+            deny_rules: List[str] = None,
+            disabled: bool = None,
+            mode: str = "disabled",
+            rules: List[Tuple[str, str]] = None,
+            template_name: str = "new_profile_template.j2",
+            full_code: str = None,
+            all_rules: List[str] = None
     ):
+        if includes is None:
+            includes = ['abstractions/base']
         self.name = name
         self.path = path
         self.flags = flags
         self.includes = includes or []
+        self.tunables = tunables or []
+        self.all_rules = all_rules or []
         self.deny_rules = deny_rules or []
         self.rules = rules or []
         self.template = env.get_template(template_name)
@@ -40,7 +47,9 @@ class AppArmorProfile:
             "app_path": self.path,
             "flags": self.flags,
             "includes": self.includes,
+            "tunables": self.tunables,
             "deny_rules": self.deny_rules,
+            "all_rules": self.all_rules,
             "rules": self.rules
         })
 

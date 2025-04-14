@@ -4,6 +4,7 @@ import re
 import tempfile
 
 from src.constants import PROFILES_PATH
+from src.model.apparmor_profile import AppArmorProfile
 from src.util.command_executor_util import run_command
 
 
@@ -80,7 +81,7 @@ def parse_profile_rules(profile_text: str) -> dict:
     return rules
 
 
-def replace_profile_body_from_string(profile_as_string: str, new_body_text: str) -> str:
+def replace_profile_body_from_string(profile_as_string: str, new_body_text: str, tunables=None) -> str:
     match = re.search(r'(\{)(.*)(\})', profile_as_string, re.DOTALL)
     if not match:
         return ""
@@ -88,9 +89,23 @@ def replace_profile_body_from_string(profile_as_string: str, new_body_text: str)
     header = profile_as_string[:match.start(1) + 1]
     footer = profile_as_string[match.end(3) - 1:]
 
+    if tunables is not None:
+        header = format_tunables(tunables)
+        header += remove_tunables_from_profile(header)
+
     updated_profile = f"{header}\n\n{new_body_text.strip()}\n\n{footer}"
 
     return updated_profile
+
+
+def format_tunables(tunables: list[str]) -> str:
+    return "\n".join(sorted(set(tunables))) + "\n"
+
+
+def remove_tunables_from_profile(profile_text: str) -> str:
+    lines = profile_text.splitlines()
+    filtered = [line for line in lines if not line.strip().startswith("#include <tunables/")]
+    return "\n".join(filtered)
 
 
 def replace_full_profile_from_file(profile_path: str, new_body_text: str):
@@ -106,7 +121,7 @@ def replace_full_profile_from_file(profile_path: str, new_body_text: str):
         os.remove(tmp_path)
 
 
-def replace_profile_body_from_file(profile_path: str, new_body_text: str):
+def replace_profile(profile_path, new_profile: AppArmorProfile):
     try:
         text_before = run_command(["sudo", "-S", "cat", profile_path])
         if text_before.returncode != 0:
@@ -116,7 +131,18 @@ def replace_profile_body_from_file(profile_path: str, new_body_text: str):
         print(f"{e}")
         return
 
-    updated_content = replace_profile_body_from_string(profile_content, extract_profile_body(new_body_text))
+
+def replace_profile_body_from_file(profile_path: str, new_body_text: str, tunables=None):
+    try:
+        text_before = run_command(["sudo", "-S", "cat", profile_path])
+        if text_before.returncode != 0:
+            return
+        profile_content = text_before.stdout
+    except Exception as e:
+        print(f"{e}")
+        return
+
+    updated_content = replace_profile_body_from_string(profile_content, extract_profile_body(new_body_text), tunables)
     if not updated_content:
         return
 
@@ -144,6 +170,9 @@ def extract_profile_name(profile_str: str) -> str | None:
     return None
 
 
+def delete_profile(name: str):
+    profile_path = PROFILES_PATH + "/" + name
+    return run_command(["sudo", "-S", "rm", profile_path])
 
 # def find_profile_name_by_binary_path(path: str) -> str:
 #     res = run_command(["sudo", "-S", "grep", "-R", path, prof])

@@ -47,7 +47,7 @@ class ProfilePageTemplate(QWidget):
     def save_profile(self, profile_as_string: str = None):
         profile_data = self.template_edit.toPlainText()
         try_save = validate_and_load_profile(profile_data, extract_profile_name(profile_data))
-        self._check_profile(try_save, profile_as_string)
+        self.check_profile(try_save, profile_as_string)
 
     def check_profile(self, command_res, profile_as_string=None, success_msg="Профиль успешно сохранен и загружен!"):
         self.error_message = None

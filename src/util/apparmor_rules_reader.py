@@ -1,13 +1,16 @@
 import os
+import re
 from typing import Any
 
 from src.constants import PROFILES_PATH
+from src.util.file_util import expand_apparmor_braces
 
 CAP_FILE = "/usr/include/linux/capability.h"
 
 capabilities_cache = None
 tunables_cache = None
 abstractions_cache = None
+
 
 def get_capabilities() -> set[Any] | None:
     global capabilities_cache
@@ -36,6 +39,7 @@ def get_capabilities() -> set[Any] | None:
     capabilities_cache = capabilities
     return capabilities_cache
 
+
 def get_tunables():
     global tunables_cache
     if tunables_cache is not None:
@@ -57,6 +61,18 @@ def get_tunables():
 
     tunables_cache = tunables_files
     return tunables_cache
+
+
+def extract_tunables(tunables_dict: dict[str, str]) -> list[tuple[str, str]]:
+    tunables = []
+
+    for content in tunables_dict.values():
+        matches = re.findall(r'(@\{\w+\})\s*=\s*([^\n#]+)', content)
+        for var, paths in matches:
+            for path in paths.split():
+                tunables.append((var, path.strip()))
+    return tunables
+
 
 def get_abstractions():
     global abstractions_cache
@@ -80,6 +96,27 @@ def get_abstractions():
     abstractions_cache = abstractions_files
     return abstractions_cache
 
+
+def normalize_abstractions_cache(raw_cache: dict[str, str]) -> dict[str, list[str]]:
+    result = {}
+    for name, content in raw_cache.items():
+        result[name] = []
+        for line in content.splitlines():
+            line = line.strip().strip(',')
+            if not line or line.startswith('#') or line.startswith('include'):
+                continue
+
+            if ' ' in line:
+                path_part, perms = line.rsplit(' ', 1)
+                expanded_paths = expand_apparmor_braces(path_part)
+                for ep in expanded_paths:
+                    result[name].append(f"{ep} {perms}")
+            else:
+                expanded_paths = expand_apparmor_braces(line)
+                result[name].extend(expanded_paths)
+    return result
+
+
 def search_in_files(files_dict, query):
     results = {}
     for filename, content in files_dict.items():
@@ -91,48 +128,51 @@ def search_in_files(files_dict, query):
             results[filename] = matching_lines
     return results
 
+
 def search_tunables(query):
     tunables = get_tunables()
     return search_in_files(tunables, query)
+
 
 def search_abstractions(query):
     abstractions = get_abstractions()
     return search_in_files(abstractions, query)
 
+
 def get_existing_capabilities():
     return [
-    "chown",
-    "dac_override",
-    "dac_read_search",
-    "fowner",
-    "fsetid",
-    "kill",
-    "setgid",
-    "setuid",
-    "setpcap",
-    "linux_immutable",
-    "net_bind_service",
-    "net_broadcast",
-    "net_admin",
-    "net_raw",
-    "ipc_lock",
-    "ipc_owner",
-    "sys_module",
-    "sys_rawio",
-    "sys_chroot",
-    "sys_ptrace",
-    "sys_pacct",
-    "sys_admin",
-    "sys_boot",
-    "sys_nice",
-    "sys_resource",
-    "sys_time",
-    "sys_tty_config",
-    "mknod",
-    "lease",
-    "audit_write",
-    "audit_control",
-    "setfcap",
-    "mac_override",
-    "mac_admin",
-]
+        "chown",
+        "dac_override",
+        "dac_read_search",
+        "fowner",
+        "fsetid",
+        "kill",
+        "setgid",
+        "setuid",
+        "setpcap",
+        "linux_immutable",
+        "net_bind_service",
+        "net_broadcast",
+        "net_admin",
+        "net_raw",
+        "ipc_lock",
+        "ipc_owner",
+        "sys_module",
+        "sys_rawio",
+        "sys_chroot",
+        "sys_ptrace",
+        "sys_pacct",
+        "sys_admin",
+        "sys_boot",
+        "sys_nice",
+        "sys_resource",
+        "sys_time",
+        "sys_tty_config",
+        "mknod",
+        "lease",
+        "audit_write",
+        "audit_control",
+        "setfcap",
+        "mac_override",
+        "mac_admin",
+    ]
