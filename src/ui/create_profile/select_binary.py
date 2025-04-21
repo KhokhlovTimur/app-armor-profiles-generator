@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTextEdit, QFileDialog, QMessageBox, QStackedWidget)
 
-from src.apparmor.generator.g import Generator
+from src.apparmor.generator.generate_process_builder import Generator
 from src.model.apparmor_profile import AppArmorProfile
 from src.ui.create_profile.profile_add import CreateProfilePage
 from src.ui.profile_edit import EditProfilePage
@@ -90,7 +90,7 @@ class SelectGenerateProfilePage(QWidget):
         gen.start_generate(self.path_edit.text())
         gen.exec_app(self)
         includes, abstractions, rules = gen.run_generate()
-        self.generator_page = EditProfilePage(AppArmorProfile(path=self.path_edit.text(), tunables=includes, includes=abstractions, all_rules=rules), self, True)
+        self.generator_page = EditProfilePage(AppArmorProfile(name="", path=self.path_edit.text(), tunables=includes, includes=abstractions, all_rules=rules), self, True)
         self.stack.addWidget(self.generator_page)
         self.stack.setCurrentWidget(self.generator_page)
         self.generator_page.finished.connect(self.stack_back)

@@ -1,3 +1,4 @@
+from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor
 from PyQt5.QtWidgets import QPushButton, QMessageBox
 
 from src.apparmor.apparmor_manager import read_apparmor_profile_by_name
@@ -9,7 +10,7 @@ from src.util.apparmor_util import extract_profile_path
 
 
 class EditProfilePage(CreateProfilePage):
-    def __init__(self, profile: AppArmorProfile, parent, is_custom_profile:bool=False):
+    def __init__(self, profile: AppArmorProfile, parent, is_custom_profile:bool=False, diff_profile: AppArmorProfile=None):
         super().__init__(profile)
         self.setWindowTitle("Edit Profile")
         self.profile = profile
@@ -23,6 +24,9 @@ class EditProfilePage(CreateProfilePage):
             self.profile_code = profile.render()
 
         self.template_edit.setPlainText(self.profile_code)
+
+        if diff_profile is not None:
+            self.highlight_changes(diff_profile.render())
 
     def go_back(self):
         self.deleteLater()
@@ -80,4 +84,6 @@ class EditProfilePage(CreateProfilePage):
             return
         self.deleteLater()
         PagesHolder().get_content_area().removeWidget(self)
+
+
 

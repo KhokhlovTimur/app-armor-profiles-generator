@@ -76,3 +76,11 @@ def is_binary_executable(b_path: str) -> bool:
         return False
 
     return True
+
+def save_logs(logs: list[str], path: str):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(logs))
+    except Exception as e:
+        print(f"{path}: {e}")
+

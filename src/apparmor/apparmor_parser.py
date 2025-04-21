@@ -35,7 +35,7 @@ def save_and_add_profile(profile_string: str, profile_filename: str, tunables=No
         profile_filename = profile_filename.lstrip("/").replace("/", ".")
         filepath = f"{PROFILES_PATH}/{profile_filename}"
         tmp_filepath = f"{PROFILES_PATH}/{TMP_PROFILE_NAME}"
-        text_before = replace_profile_body_from_file(tmp_filepath, profile_string).stdout
+        text_before = replace_profile_body_from_file(tmp_filepath, profile_string, tunables).stdout
 
         parser_result = run_command([
             "sudo", "-S", "apparmor_parser", "-r", tmp_filepath

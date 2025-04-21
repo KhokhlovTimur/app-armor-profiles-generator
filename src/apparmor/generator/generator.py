@@ -1,13 +1,15 @@
 import fnmatch
+import os
 import re
 
 import re
+import subprocess
 
 from src.apparmor.generator.parsers import UserNsParser, CapabilityParser, SignalParser, PtraceParser, PivotRootParser, \
     MountParser, DbusParser, NetworkParser, ExecParser
 from src.util.apparmor_rules_reader import abstractions_cache, get_abstractions, get_tunables, extract_tunables, \
     normalize_abstractions_cache
-from src.util.file_util import join_project_root
+from src.util.file_util import join_project_root, expand_apparmor_braces
 
 
 class AppArmorRuleGenerator:
@@ -23,9 +25,8 @@ class AppArmorRuleGenerator:
             log_path: str = join_project_root("data/", "logs"),
             apply_tunables: bool = True,
             apply_abstractions: bool = True,
-            abstractions_cache: dict[str, tuple[str]] = None
+            abstractions_cache: dict[str, list[str]] = None
     ) -> tuple[list[str], list[str], list[str]]:
-
         rules = set()
         with open(log_path, "r") as f:
             lines = f.readlines()
@@ -55,14 +56,15 @@ class AppArmorRuleGenerator:
         perm_order = ['r', 'w', 'm', 'i', 'x', 'k']
         for path, perms in sorted(self.file_rules.items()):
             ordered = ''.join(p for p in perm_order if p in perms)
-            rules.add(f"{path} {ordered},")
+            rules.add(f"{path} {ordered}")
 
         rules = sorted(rules)
 
         tunables_includes = []
+        tunables_dict = get_tunables()
+        flat_tunables = extract_tunables(tunables_dict)
+
         if apply_tunables:
-            tunables_dict = get_tunables()
-            flat_tunables = extract_tunables(tunables_dict)
             rules = self.apply_tunables(rules, flat_tunables)
 
             used_vars = set()
@@ -72,18 +74,54 @@ class AppArmorRuleGenerator:
             for tun_name, content in tunables_dict.items():
                 for var in used_vars:
                     if var in content:
-                        tunables_includes.append(f"#include <tunables/{tun_name}>")
+                        tunables_includes.append(f"tunables/{tun_name}")
                         break
 
         abstractions_includes = []
+        used_abstraction_names = set()
         if apply_abstractions and abstractions_cache:
-            rules = self.replace_with_abstractions(rules, abstractions_cache)
+            rules = self.replace_with_abstractions(rules, used_abstraction_names)
             for rule in rules[:]:
-                if rule.startswith("#include <abstractions/"):
+                if rule.startswith("abstractions/"):
                     abstractions_includes.append(rule)
+                    used_abstraction_names.add(rule.replace("abstractions/", ""))
                     rules.remove(rule)
 
+        tunables_from_abstractions = self.find_all_used_tunables(get_abstractions(), tunables_dict, used_abstraction_names)
+        tunables_includes.extend(tunables_from_abstractions)
+
         return sorted(set(tunables_includes)), sorted(set(abstractions_includes)), sorted(rules)
+
+    def find_all_used_tunables(self, abstractions_dict: dict[str, str], tunables_dict: dict[str, str], used_abstractions: set[str]) -> set[str]:
+        include_pattern = re.compile(r'^\s*include\s+<abstractions/([^>]+)>', re.MULTILINE)
+        var_pattern = re.compile(r'@\{\w+\}')
+
+        visited = set()
+        tunables_used = set()
+        queue = list(used_abstractions)
+
+        while queue:
+            name = queue.pop()
+            if name in visited:
+                continue
+            visited.add(name)
+
+            content = abstractions_dict.get(name, "")
+            tunables_used.update(var_pattern.findall(content))
+
+            includes = include_pattern.findall(content)
+            for inc in includes:
+                if inc not in visited:
+                    queue.append(inc)
+
+        tunables_includes = set()
+        for tun_name, content in tunables_dict.items():
+            for var in tunables_used:
+                if var in content:
+                    tunables_includes.add(f"tunables/{tun_name}")
+                    break
+
+        return tunables_includes
 
     def _process_file_access(self, line):
         name_re = re.compile(r'name="([^"]+)"')
@@ -126,27 +164,58 @@ class AppArmorRuleGenerator:
         return path.strip(), perms
 
     def pattern_matches_rule(self, rule_path: str, rule_perms: str, pattern_path: str, pattern_perms: str) -> bool:
-        path_match = fnmatch.fnmatch(rule_path, pattern_path)
-        perms_match = all(p in pattern_perms for p in rule_perms)
-        return path_match and perms_match
+        if rule_path == pattern_path:
+            return all(p in pattern_perms for p in rule_perms)
 
-    def replace_with_abstractions(self, rules: list[str], abstractions_cache: dict[str, list[str]]) -> list[str]:
+        if fnmatch.fnmatch(rule_path, pattern_path):
+            return all(p in pattern_perms for p in rule_perms)
+
+        return False
+
+    def replace_with_abstractions(
+            self,
+            rules: list[str],
+            used_abstraction_names: set[str]
+    ) -> list[str]:
         used_includes = set()
         remaining_rules = set(rules)
 
-        for abstraction_name, patterns in abstractions_cache.items():
-            matched_rules = set()
+        abstraction_dir = "/etc/apparmor.d/abstractions"
+        grep_targets = list(remaining_rules)
 
-            for pattern in patterns:
-                pattern_path, pattern_perms = self.normalize_rule(pattern)
-                for rule in remaining_rules:
-                    rule_path, rule_perms = self.normalize_rule(rule)
-                    if self.pattern_matches_rule(rule_path, rule_perms, pattern_path, pattern_perms):
-                        matched_rules.add(rule)
+        for rule in grep_targets:
+            rule_path, rule_perms = self.normalize_rule(rule)
+            if not rule_path:
+                continue
+            try:
+                result = subprocess.run(
+                    ['grep', '-r', rule_path, abstraction_dir],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True
+                )
+            except Exception:
+                continue
 
-            if matched_rules:
-                used_includes.add(f"#include <abstractions/{abstraction_name}>")
-                remaining_rules -= matched_rules
+            matches = result.stdout.strip().splitlines()
+            for match in matches:
+                if ":" not in match:
+                    continue
+                filepath, line = match.split(":", 1)
+                line = line.strip().strip(',')
+
+                if not line or line.startswith("#"):
+                    continue
+
+                line_path, line_perms = self.normalize_rule(line)
+
+                if line_path == rule_path and line_perms == rule_perms:
+                    abstraction_name = os.path.basename(filepath)
+                    include_path = f"abstractions/{abstraction_name}"
+                    used_includes.add(include_path)
+                    used_abstraction_names.add(abstraction_name)
+                    remaining_rules.remove(rule)
+                    break
 
         return sorted(used_includes) + sorted(remaining_rules)
 

@@ -90,8 +90,8 @@ def replace_profile_body_from_string(profile_as_string: str, new_body_text: str,
     footer = profile_as_string[match.end(3) - 1:]
 
     if tunables is not None:
-        header = format_tunables(tunables)
-        header += remove_tunables_from_profile(header)
+        header = remove_tunables_from_profile(header)
+        header = format_tunables(tunables) + header
 
     updated_profile = f"{header}\n\n{new_body_text.strip()}\n\n{footer}"
 
@@ -99,12 +99,12 @@ def replace_profile_body_from_string(profile_as_string: str, new_body_text: str,
 
 
 def format_tunables(tunables: list[str]) -> str:
-    return "\n".join(sorted(set(tunables))) + "\n"
+    return "\n".join(sorted(set("#include <" + line + ">" for line in tunables))) + "\n"
 
 
 def remove_tunables_from_profile(profile_text: str) -> str:
     lines = profile_text.splitlines()
-    filtered = [line for line in lines if not line.strip().startswith("#include <tunables/")]
+    filtered = [line for line in lines if not line.strip().startswith("#include <tunables/") and not line.strip().startswith("include <tunables/")]
     return "\n".join(filtered)
 
 
@@ -174,5 +174,54 @@ def delete_profile(name: str):
     profile_path = PROFILES_PATH + "/" + name
     return run_command(["sudo", "-S", "rm", profile_path])
 
-# def find_profile_name_by_binary_path(path: str) -> str:
-#     res = run_command(["sudo", "-S", "grep", "-R", path, prof])
+
+def parse_apparmor_profile(text: str):
+    result = {
+        "tunables": [],
+        "abstractions": [],
+        "rules": []
+    }
+
+    include_pattern = re.compile(r'^\s*#?include\s+<([^>]+)>')
+    in_profile_body = False
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.startswith("profile") and stripped.endswith("{"):
+            in_profile_body = True
+            continue
+        if stripped == "}":
+            in_profile_body = False
+            continue
+
+        match = include_pattern.match(stripped)
+        if match:
+            include_target = match.group(1)
+            if include_target.startswith("tunables/"):
+                result["tunables"].append(include_target)  # ✅ только путь
+            elif include_target.startswith("abstractions/"):
+                result["abstractions"].append(include_target)
+            continue
+
+        if in_profile_body:
+            result["rules"].append(stripped)
+
+    return result
+print(parse_apparmor_profile("""
+include <tunables/global>
+include <tunables/etc>
+include <tunables/kernelvars>
+include <tunables/multiarch>
+include <tunables/proc>
+include <tunables/run>
+
+profile usr.bin.curl /usr/bin/curl {
+  include <abstractions/nameservice>
+
+ }
+
+
+"""))

@@ -99,54 +99,100 @@ class MountParser(RuleParser):
     flags_re = re.compile(r'flags="([^"]+)"')
     fstype_re = re.compile(r'fstype="([^"]+)"')
     srcname_re = re.compile(r'srcname="([^"]+)"')
+    dstname_re = re.compile(r'name="([^"]+)"')
 
-    def match(self, line):
-        return self.mount_re.search(line)
+    def match(self, line: str) -> bool:
+        return bool(self.mount_re.search(line))
 
-    def generate(self, line):
+    def generate(self, line: str) -> str | None:
         if not self.mount_re.search(line):
             return None
+
         flags_match = self.flags_re.search(line)
         fstype_match = self.fstype_re.search(line)
         src_match = self.srcname_re.search(line)
-        src = src_match.group(1) if src_match else None
-        if not src:
-            return None
-        opts = f"options=({flags_match.group(1)}) " if flags_match else ""
-        fstype = f"fstype={fstype_match.group(1)} " if fstype_match else ""
-        return f"mount {opts}{fstype}{src} -> /,"
+        dst_match = self.dstname_re.search(line)
+
+        options_part = ""
+        fstype_part = ""
+        src_part = ""
+        dst_part = ""
+
+        if flags_match:
+            raw_flags = flags_match.group(1)
+            flags = [f.strip() for f in raw_flags.split(",") if f.strip()]
+            if len(flags) > 1:
+                options_part = f"options=({','.join(flags)})"
+            elif flags:
+                options_part = f"options={flags[0]}"
+
+        if fstype_match:
+            fstype_part = f"fstype={fstype_match.group(1)}"
+
+        if src_match:
+            src_part = src_match.group(1)
+
+        if dst_match:
+            dst_part = f"-> {dst_match.group(1)}"
+
+        parts = ["mount"]
+        if options_part:
+            parts.append(options_part)
+        if fstype_part:
+            parts.append(fstype_part)
+        if src_part and dst_part:
+            parts.append(src_part)
+        if dst_part:
+            parts.append(dst_part)
+
+        return " ".join(parts)
 
 
 class NetworkParser(RuleParser):
     pattern = re.compile(
-        r'operation="network".*family="([^"]+)".*sock_type="([^"]+)"(?:.*net_local_addr="([^"]+)")?(?:.*net_foreign_addr="([^"]+)")?(?:.*net_local_port="([^"]+)")?(?:.*net_foreign_port="([^"]+)")?'
+        r'operation="([^"]+)"\s+.*class="net"[^"]*family="([^"]+)"(?:[^"]*sock_type="([^"]+)")?.*protocol=([0-9]+)'
     )
 
-    def match(self, line):
-        return self.pattern.search(line)
+    allowed_permissions = {
+        "create", "accept", "bind", "connect", "listen",
+        "read", "write", "send", "receive", "shutdown"
+    }
 
-    def generate(self, line):
+    protocol_map = {
+        "6": "tcp",
+        "17": "udp",
+        "1": "icmp",
+        "58": "icmpv6",
+        "132": "sctp",
+    }
+
+    def match(self, line: str) -> bool:
+        return bool(self.pattern.search(line))
+
+    def generate(self, line: str) -> str | None:
         match = self.pattern.search(line)
         if not match:
             return None
 
-        fam, sock, local_addr, foreign_addr, local_port, foreign_port = match.groups()
+        operation, family, sock_type, proto = match.groups()
 
-        if not fam or not sock:
-            return None
+        parts = ["network"]
 
-        rule = f"network {fam} {sock}"
+        if operation in self.allowed_permissions:
+            parts.append(f"({operation})")
 
-        if local_addr:
-            rule += f" local_addr={local_addr}"
-        if foreign_addr:
-            rule += f" remote_addr={foreign_addr}"
-        if local_port:
-            rule += f" local_port={local_port}"
-        if foreign_port:
-            rule += f" remote_port={foreign_port}"
+        if family:
+            parts.append(family)
 
-        return rule + ","
+        if sock_type:
+            parts.append(sock_type)
+
+        proto_name = self.protocol_map.get(proto)
+        if proto_name:
+            parts.append(proto_name)
+
+        return " ".join(parts) + ","
+
 
 
 class PivotRootParser(RuleParser):
@@ -202,7 +248,6 @@ class UserNsParser(RuleParser):
 
     def generate(self, line):
         return "userns (create),"
-
 
 
 class UnixRule(RuleParser):

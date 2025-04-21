@@ -1,3 +1,5 @@
+import copy
+
 from PyQt5 import sip
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
@@ -8,12 +10,14 @@ from PyQt5.QtWidgets import (
 from src.apparmor.apparmor_manager import get_profile_mode_by_name, change_profile_mode, get_logs_not_empty, \
     read_apparmor_profile_by_name
 from src.apparmor.apparmor_parser import delete_profile_from_kernel
+from src.apparmor.generator.generate_process_builder import Generator
+from src.apparmor.log_collector import LogLoaderThread, LogSearchDialog
 from src.constants import PROFILES_PATH
 from src.model.apparmor_profile import AppArmorProfile
 from src.ui.profile_edit import EditProfilePage
 from src.ui.page_holder import PagesHolder
 from src.util.apparmor_util import parse_profile_rules, extract_profile_path, delete_profile
-from src.util.command_executor_util import check_command_result
+from src.util.command_executor_util import check_command_result, run_command
 from src.util.file_util import load_stylesheet
 
 
@@ -22,7 +26,9 @@ class ProfileInfoPage(QWidget):
         super().__init__()
         self.setWindowTitle("Profile Info")
         self.content_area = PagesHolder().get_content_area()
-        self.profile = AppArmorProfile(name=profile_data['name'], path=extract_profile_path(read_apparmor_profile_by_name(profile_data['name'])), disabled=profile_data['disabled'], mode=profile_data['mode'])
+        self.profile = AppArmorProfile(name=profile_data['name'],
+                                       path=extract_profile_path(read_apparmor_profile_by_name(profile_data['name'])),
+                                       disabled=profile_data['disabled'], mode=profile_data['mode'])
         self.parent = parent
         self.initUI()
 
@@ -135,11 +141,12 @@ class ProfileInfoPage(QWidget):
         button_layout.setSpacing(10)
 
         self.logs_button = QPushButton("Show Logs")
+        self.update_from_logs_button = QPushButton("Update from logs")
         self.code_button = QPushButton("Show Code")
         self.edit_button = QPushButton("Edit Code")
         self.back_button = QPushButton("Back")
 
-        for button in [self.logs_button, self.code_button, self.edit_button, self.back_button]:
+        for button in [self.logs_button, self.code_button, self.edit_button, self.back_button, self.update_from_logs_button]:
             button.setCursor(Qt.PointingHandCursor)
             load_stylesheet("buttons.qss", button)
             button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -148,8 +155,10 @@ class ProfileInfoPage(QWidget):
         self.code_button.clicked.connect(lambda: self.toggle_content("code"))
         self.edit_button.clicked.connect(lambda: self.toggle_content("edit"))
         self.logs_button.clicked.connect(lambda: self.toggle_content("logs"))
+        self.update_from_logs_button.clicked.connect(lambda: self.update_from_logs())
 
         button_layout.addWidget(self.logs_button)
+        button_layout.addWidget(self.update_from_logs_button)
         button_layout.addWidget(self.code_button)
         button_layout.addWidget(self.edit_button)
         if self.profile.disabled:
@@ -212,7 +221,7 @@ class ProfileInfoPage(QWidget):
             self.scroll_area_logs.setWidget(self.logs_content_widget)
             self.content_display_layout.addWidget(logs_label)
             self.content_display_layout.addWidget(self.scroll_area_logs)
-            self.load_logs_async()
+            self.load_logs_async(self.display_logs)
 
         elif content_type == "table":
             self.show_table_view()
@@ -256,13 +265,10 @@ class ProfileInfoPage(QWidget):
         PagesHolder().get_content_area().addWidget(edit)
         PagesHolder().get_content_area().setCurrentWidget(edit)
 
-    def load_logs_async(self):
-        # future = AppArmorWorker().run_async(
-        #     lambda: self.app_armor_manager.get_logs_not_empty(self.profile.name, None)
-        # )
-        # self.watcher = TaskWatcher(future)
-        # self.watcher.finished.connect(lambda f: self.display_logs(f))
-        self.display_logs(get_logs_not_empty(self.profile.name, extract_profile_path(read_apparmor_profile_by_name(self.profile.name)), None))
+    def load_logs_async(self, callback):
+        self.log_loader = LogLoaderThread(self.profile.name)
+        self.log_loader.logs_loaded.connect(callback)
+        self.log_loader.start()
 
     def go_back(self):
         self.content_area.setCurrentWidget(self.parent)
@@ -274,12 +280,13 @@ class ProfileInfoPage(QWidget):
         event.accept()
 
     def delete_profile(self):
-        var: bool = check_command_result(self, delete_profile_from_kernel(PROFILES_PATH + "/" + self.profile.name))
+        path = PROFILES_PATH + "/" + self.profile.name
+        var: bool = check_command_result(self, delete_profile_from_kernel(path))
         if var:
-            res = delete_profile(self.profile.name)
-            if res.returncode == 0:
-                PagesHolder().get_content_area().setCurrentWidget(self.parent)
-                self.deleteLater()
+            unload_result = run_command(["sudo", "-S", "apparmor_parser", "-R", path])
+            delete_result = run_command(["sudo", "-S", "rm", path])
+
+            return unload_result + "\n" + delete_result
 
     def display_logs(self, logs: list[str]):
         if self.logs_layout is None or sip.isdeleted(self.logs_layout):
@@ -380,3 +387,25 @@ class ProfileInfoPage(QWidget):
             self.edit_button.hide()
         else:
             self.edit_button.show()
+
+    def update_from_logs(self):
+        dialog = LogSearchDialog(
+            profile_name=self.profile.name,
+            profile_path=self.profile.path,
+            on_logs_found=self.update_profile_from_logs,
+            parent=self,
+            is_from_script=True
+        )
+
+        dialog.exec_()
+
+    def update_profile_from_logs(self, logs=None):
+        generator = Generator()
+        profile_before = copy.deepcopy(self.profile)
+        updated_profile = generator.update_profile_from_logs(profile=profile_before, is_from_file=True)
+
+        edit = EditProfilePage(profile_before, self, is_custom_profile=True)
+        edit.highlight_changes(updated_profile.render())
+
+        PagesHolder().get_content_area().addWidget(edit)
+        PagesHolder().get_content_area().setCurrentWidget(edit)

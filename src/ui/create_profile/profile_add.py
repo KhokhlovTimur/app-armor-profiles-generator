@@ -1,4 +1,5 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayout, QSplitter, QWidget, QDialog, \
     QMessageBox, QComboBox, QLineEdit, QFormLayout, QDialogButtonBox, QTableWidgetItem, QSizePolicy, \
     QHeaderView, QTableWidget, QStackedWidget
@@ -39,10 +40,10 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.template_edit.setObjectName("edit_text_area")
         load_stylesheet(self.__profile_styles, self.template_edit)
         self.profile = profile
-        if self.profile.path is not None:
+        if self.profile.path is not None and len(self.profile.name.strip()) == 0:
             self.profile.name = ""
-        self.profile_code = profile.render()
-        if self.profile.path is not None:
+        self.profile_code = self.profile.render()
+        if self.profile.path is not None and len(self.profile.name.strip()) == 0:
             self.profile.name = profile_name_from_path(profile.path)
         self.template_edit.setPlainText(self.profile_code)
         self.template_edit.setPlaceholderText("Enter or edit template...")
@@ -92,6 +93,14 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.setLayout(self.code_layout)
 
         self.template_edit.textChanged.connect(self.update_line_numbers)
+
+    def update_line_numbers(self):
+        self.template_edit.blockSignals(True)
+        try:
+            self.line_number_area.update_area()
+            self.highlight_changes()
+        finally:
+            self.template_edit.blockSignals(False)
 
     def select_file(self):
         path = super().select_file()
@@ -250,6 +259,43 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
     def sync_code_from_table(self):
         self.profile_code = self.convert_table_to_profile()
         self.template_edit.setPlainText(self.profile_code)
+
+
+    def highlight_changes(self, edited_text=None):
+        if edited_text is None:
+            edited_text = self.template_edit.toPlainText()
+        changed_lines = self.get_changed_lines(self.profile_code, edited_text)
+
+        cursor = self.template_edit.textCursor()
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.Document)
+        cursor.setCharFormat(QTextCharFormat())
+        cursor.endEditBlock()
+
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor("#ffffaa"))
+
+        doc = self.template_edit.document()
+
+        for line_num in changed_lines:
+            block = doc.findBlockByLineNumber(line_num)
+            cursor.setPosition(block.position())
+            cursor.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
+            cursor.setCharFormat(fmt)
+
+    def get_changed_lines(self, original_text: str, modified_text: str) -> list[int]:
+        original_lines = original_text.strip().splitlines()
+        modified_lines = modified_text.strip().splitlines()
+
+        max_len = max(len(original_lines), len(modified_lines))
+        changed = []
+
+        for i in range(max_len):
+            orig = original_lines[i] if i < len(original_lines) else ""
+            mod = modified_lines[i] if i < len(modified_lines) else ""
+            if orig.strip() != mod.strip():
+                changed.append(i)
+        return changed
 
 
 class AddRuleDialog(QDialog):

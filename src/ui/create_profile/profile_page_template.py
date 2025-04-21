@@ -67,9 +67,6 @@ class ProfilePageTemplate(QWidget):
         stderr = re.sub(r'^\[sudo\] пароль для .*?:\s*', '', stderr)
         return stderr
 
-    def update_line_numbers(self):
-        self.line_number_area.updateArea()
-
 class LineNumberArea(QWidget):
     def __init__(self, editor):
         super().__init__(editor)
@@ -78,7 +75,7 @@ class LineNumberArea(QWidget):
         self.setStyleSheet("background: lightgray;")
         self.setFixedWidth(40)
 
-        self.editor.verticalScrollBar().valueChanged.connect(self.updateArea)
+        self.editor.verticalScrollBar().valueChanged.connect(self.update_area)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -104,7 +101,7 @@ class LineNumberArea(QWidget):
             block_top = self.editor.blockBoundingGeometry(block).translated(self.editor.contentOffset()).top()
             block_number += 1
 
-    def updateArea(self):
+    def update_area(self):
         self.update()
 
 
