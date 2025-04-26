@@ -201,7 +201,7 @@ def parse_apparmor_profile(text: str):
         if match:
             include_target = match.group(1)
             if include_target.startswith("tunables/"):
-                result["tunables"].append(include_target)  # ✅ только путь
+                result["tunables"].append(include_target)
             elif include_target.startswith("abstractions/"):
                 result["abstractions"].append(include_target)
             continue
@@ -210,18 +210,3 @@ def parse_apparmor_profile(text: str):
             result["rules"].append(stripped)
 
     return result
-print(parse_apparmor_profile("""
-include <tunables/global>
-include <tunables/etc>
-include <tunables/kernelvars>
-include <tunables/multiarch>
-include <tunables/proc>
-include <tunables/run>
-
-profile usr.bin.curl /usr/bin/curl {
-  include <abstractions/nameservice>
-
- }
-
-
-"""))

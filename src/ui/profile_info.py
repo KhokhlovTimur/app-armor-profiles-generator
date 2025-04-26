@@ -286,7 +286,7 @@ class ProfileInfoPage(QWidget):
             unload_result = run_command(["sudo", "-S", "apparmor_parser", "-R", path])
             delete_result = run_command(["sudo", "-S", "rm", path])
 
-            return unload_result + "\n" + delete_result
+            return unload_result
 
     def display_logs(self, logs: list[str]):
         if self.logs_layout is None or sip.isdeleted(self.logs_layout):
@@ -401,11 +401,11 @@ class ProfileInfoPage(QWidget):
 
     def update_profile_from_logs(self, logs=None):
         generator = Generator()
-        profile_before = copy.deepcopy(self.profile)
-        updated_profile = generator.update_profile_from_logs(profile=profile_before, is_from_file=True)
-
-        edit = EditProfilePage(profile_before, self, is_custom_profile=True)
-        edit.highlight_changes(updated_profile.render())
+        self.profile.parse()
+        edit = EditProfilePage(self.profile, self, is_custom_profile=True)
+        updated_profile = generator.update_profile_from_logs(profile=self.profile, is_from_file=True)
+        edit.profile = updated_profile
+        edit.template_edit.setPlainText(updated_profile.render())
 
         PagesHolder().get_content_area().addWidget(edit)
         PagesHolder().get_content_area().setCurrentWidget(edit)

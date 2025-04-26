@@ -16,7 +16,7 @@ class AppArmorProfile:
             self,
             name: str = "",
             path: str = None,
-            flags: str = "complain",
+            flags: List[str] = None,
             includes=None,
             tunables=None,
             deny_rules: List[str] = None,
@@ -41,14 +41,14 @@ class AppArmorProfile:
         self.full_code = full_code
         self.disabled = disabled
         self.mode = mode
-        self.tunables.add('include <tunables/global>')
+        self.tunables.add('tunables/global')
+        self.includes.add('abstractions/base')
 
     def render(self) -> str:
         if self.full_code is not None:
             return self.full_code
 
         return self.template.render({
-            "name": self.name,
             "app_path": self.path,
             "flags": self.flags,
             "includes": self.includes,
@@ -91,7 +91,7 @@ class AppArmorProfile:
                 continue
 
             if in_profile_body:
-                result["rules"].append(stripped)
+                result["rules"].append(stripped.replace(',', ''))
 
         self.tunables = result['tunables']
         self.includes = result['abstractions']
@@ -117,27 +117,3 @@ class AppArmorProfile:
             template_name=self.template.name
         )
         return copied
-
-# def parse_profile_text(profile_text: str) -> AppArmorProfile:
-#     header_match = re.search(r"profile\s+(\S+)\s+(\S+)\s+flags=\(([^)]+)\)", profile_text)
-#     if not header_match:
-#         raise ValueError("Не удалось найти заголовок профиля")
-#
-#     name, path, flags = header_match.groups()
-#
-#     includes = re.findall(r'^\s*include\s+<(.+?)>', profile_text, re.MULTILINE)
-#
-#     deny_rules = re.findall(r'^\s*deny\s+(.+?),', profile_text, re.MULTILINE)
-#
-#     rules = []
-#     for match in re.finditer(r'^\s*(/[^ \n]+)\s+([rwxiklmacd]+),', profile_text, re.MULTILINE):
-#         rules.append((match.group(1), match.group(2)))
-#
-#     return AppArmorProfile(
-#         name=name,
-#         path=path,
-#         flags=flags,
-#         includes=includes,
-#         deny_rules=deny_rules,
-#         rules=rules
-#     )

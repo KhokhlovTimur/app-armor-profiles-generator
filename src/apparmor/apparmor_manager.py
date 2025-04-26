@@ -12,11 +12,11 @@ def check_status():
 
 
 def reload_apparmor():
-    return run_command(["sudo", "systemctl", "reload", "apparmor"])
+    return run_command(["sudo", "-S", "systemctl", "reload", "apparmor"])
 
 
 def check_service_status():
-    return run_command(["sudo", "systemctl", "status", "apparmor"])
+    return run_command(["sudo", "-S", "systemctl", "status", "apparmor"])
 
 
 def read_apparmor_profile_by_name(profile_name, directory=PROFILES_PATH):

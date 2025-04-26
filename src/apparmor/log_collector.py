@@ -28,7 +28,7 @@ class LogLoaderThread(QThread):
         self.logs_loaded.emit(logs)
 
     def run_from_script(self):
-        analyze_profile_logs(self.profile_name, get_profile_created_or_modified_date(self.profile_name))
+        analyze_profile_logs(self.profile_path, get_profile_created_or_modified_date(self.profile_name))
 
 class LogSearchDialog(QDialog):
     def __init__(self, profile_name, profile_path, on_logs_found, parent=None, is_from_script=None):

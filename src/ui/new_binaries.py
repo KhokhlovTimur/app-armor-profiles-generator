@@ -90,7 +90,7 @@ class NewBinariesHandler:
         if hasattr(self, "banner") and self.banner and not self._banner_closing:
             self._close_banner(force=True)
 
-        self._banner_closing = False  # флаг, что баннер активен
+        self._banner_closing = False
 
         self.banner = QtWidgets.QWidget(self.parent)
         self.banner.setFixedSize(320, 80)

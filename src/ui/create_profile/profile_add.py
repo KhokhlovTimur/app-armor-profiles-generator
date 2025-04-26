@@ -1,3 +1,5 @@
+import re
+
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from PyQt5.QtWidgets import QVBoxLayout, QPlainTextEdit, QPushButton, QHBoxLayout, QSplitter, QWidget, QDialog, \
@@ -189,9 +191,9 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
 
         return confirm
 
-    def show_table_view(self):
-        parsed = parse_profile_rules(self.profile_code)
 
+    def show_table_view(self):
+        rule_re = re.compile(r'^(?P<path>[^\s]+)\s+(?P<perms>[a-zA-Zx]+),?$')
         self.rules_table = QTableWidget()
         self.rules_table.setColumnCount(2)
         self.rules_table.setHorizontalHeaderLabels(["Path / Rule", "Permissions"])
@@ -200,7 +202,26 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.rules_table.setMinimumHeight(200)
         self.rules_table.setStyleSheet("font-family: monospace; font-size: 12px;")
 
-        for path, perms in parsed.items():
+        for line in self.profile_code.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            if line.startswith("profile ") or line in ("{", "}"):
+                continue
+
+            if line.startswith("include "):
+                path = line
+                perms = ""
+            else:
+                match = rule_re.match(line)
+                if match:
+                    path = match.group("path")
+                    perms = match.group("perms")
+                else:
+                    path = line
+                    perms = ""
+
             row = self.rules_table.rowCount()
             self.rules_table.insertRow(row)
             self.rules_table.setItem(row, 0, QTableWidgetItem(path))
@@ -213,10 +234,12 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         if dialog.exec_() == QDialog.Accepted:
             path, perms = dialog.get_data()
             if path:
+                self.profile.parse()
                 row = self.rules_table.rowCount()
                 self.rules_table.insertRow(row)
                 self.rules_table.setItem(row, 0, QTableWidgetItem(path))
                 self.rules_table.setItem(row, 1, QTableWidgetItem(perms))
+                self.profile.all_rules.append(f'{path} {perms}')
 
                 self.sync_code_from_table()
 
@@ -234,20 +257,31 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
 
         for row in selected_rows:
             self.rules_table.removeRow(row)
+            self.profile.all_rules.remove()
 
         self.sync_code_from_table()
 
     def convert_table_to_profile(self):
         lines = []
         for row in range(self.rules_table.rowCount()):
-            path = self.rules_table.item(row, 0).text().strip()
-            perms = self.rules_table.item(row, 1).text().strip()
-            if path:
-                if perms:
-                    lines.append(f"{path} {perms},")
-                else:
-                    lines.append(path)
+            path_item = self.rules_table.item(row, 0)
+            perms_item = self.rules_table.item(row, 1)
+
+            path = path_item.text().strip() if path_item else ""
+            perms = perms_item.text().strip() if perms_item else ""
+
+            if not path:
+                continue
+
+            if perms:
+                line = f"{path} {perms},"
+            else:
+                line = f"{path},"
+
+            lines.append(line)
+
         body = "\n".join(lines)
+
         full_text = replace_profile_body_from_string(
             self.template_edit.toPlainText(), body
         )
@@ -257,7 +291,9 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         self.profile_code = self.template_edit.toPlainText()
 
     def sync_code_from_table(self):
-        self.profile_code = self.convert_table_to_profile()
+        # self.profile_code = self.convert_table_to_profile()
+        self.profile.parse()
+        self.profile_code = self.profile.render()
         self.template_edit.setPlainText(self.profile_code)
 
 
@@ -293,7 +329,7 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         for i in range(max_len):
             orig = original_lines[i] if i < len(original_lines) else ""
             mod = modified_lines[i] if i < len(modified_lines) else ""
-            if orig.strip() != mod.strip():
+            if orig.strip() != mod.strip() and mod not in original_lines:
                 changed.append(i)
         return changed
 

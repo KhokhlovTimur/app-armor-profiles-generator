@@ -2,7 +2,7 @@
 include <{{ include }}>
 {% endfor %}
 
-profile {{ name }} {{ app_path }} flags=({{ flags }}) {
+profile {{ name }} {{ app_path }} {% if flags %} flags=( {% for flag in flags %} {{flag}}, {% endfor %} ) {% endif %} {
   {% for include in includes %}
   include <{{ include }}>
   {% endfor %}

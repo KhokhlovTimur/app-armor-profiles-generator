@@ -96,12 +96,11 @@ class Generator(QObject):
 
             existing_lines = set(line.strip() for line in profile_text.splitlines())
 
-            tunables = [line for line in tunables_new if line.strip() and line.strip() not in existing_lines]
-            abstractions = [line for line in abstractions_new if line.strip() and line.strip() not in existing_lines]
+            tunables = [line for line in tunables_new if line.strip() and f'include <{line.strip()}>' not in existing_lines]
+            abstractions = [line for line in abstractions_new if line.strip() and f'include <{line.strip()}>' not in existing_lines]
             rules = [line for line in rules_new if line.strip() and line.strip() not in existing_lines]
 
-            print(
-                f"[✓] Добавлено новых: tunables={len(tunables)}, abstractions={len(abstractions)}, rules={len(rules)}")
+            print(f"[✓] Добавлено новых: tunables={len(tunables)}, abstractions={len(abstractions)}, rules={len(rules)}")
 
             profile.tunables.extend(tunables)
             profile.includes.extend(abstractions)

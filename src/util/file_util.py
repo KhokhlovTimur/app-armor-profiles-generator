@@ -1,4 +1,5 @@
 import datetime
+import fnmatch
 import os.path
 import re
 
@@ -36,6 +37,25 @@ def expand_apparmor_braces(pattern: str) -> list[str]:
         results.extend(expand_apparmor_braces(expanded))
 
     return results
+
+
+def match_with_limited_wildcards(rule_path: str, pattern: str, max_mismatches: int = 1) -> bool:
+    rule_segments = rule_path.strip("/").split("/")
+    pattern_segments = pattern.strip("/").split("/")
+
+    mismatches = 0
+    for i in range(min(len(rule_segments), len(pattern_segments))):
+        if not fnmatch.fnmatch(rule_segments[i], pattern_segments[i]):
+            mismatches += 1
+            if mismatches > max_mismatches:
+                return False
+
+    mismatches += abs(len(rule_segments) - len(pattern_segments))
+    return mismatches <= max_mismatches
+
+
+def is_too_generic_pattern(pattern: str) -> bool:
+    return pattern.startswith("/**")
 
 
 def get_profile_file_timestamp(profile_name: str) -> dict:
@@ -77,10 +97,10 @@ def is_binary_executable(b_path: str) -> bool:
 
     return True
 
+
 def save_logs(logs: list[str], path: str):
     try:
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(logs))
     except Exception as e:
         print(f"{path}: {e}")
-
