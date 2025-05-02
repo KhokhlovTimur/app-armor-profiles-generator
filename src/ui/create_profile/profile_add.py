@@ -301,6 +301,7 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
         if edited_text is None:
             edited_text = self.template_edit.toPlainText()
         changed_lines = self.get_changed_lines(self.profile_code, edited_text)
+        changed_lines = sorted(set(changed_lines))
 
         cursor = self.template_edit.textCursor()
         cursor.beginEditBlock()
@@ -313,9 +314,28 @@ class CreateProfilePage(ProfilePageTemplate, ExecutablePage):
 
         doc = self.template_edit.document()
 
-        for line_num in changed_lines:
+        seen_texts = set()
+        shift = 0
+        adjusted_lines = []
+
+        for i, line_num in enumerate(changed_lines):
+            adjusted_line_num = line_num + shift
+            block = doc.findBlockByLineNumber(adjusted_line_num)
+            text = block.text()
+
+            if text in seen_texts:
+                shift += 1
+                adjusted_line_num += 1
+            else:
+                seen_texts.add(text)
+
+            adjusted_lines.append(adjusted_line_num)
+
+        for line_num in adjusted_lines:
             block = doc.findBlockByLineNumber(line_num)
-            cursor.setPosition(block.position())
+            if not block.isValid():
+                continue
+            cursor = QTextCursor(block)
             cursor.movePosition(QTextCursor.EndOfBlock, QTextCursor.KeepAnchor)
             cursor.setCharFormat(fmt)
 

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from src.apparmor.apparmor_manager import read_apparmor_profile_by_name, get_logs_not_empty
+from src.apparmor.apparmor_manager import read_apparmor_profile_by_name, get_logs_not_empty, change_profile_mode
 from src.apparmor.apparmor_parser import validate_and_load_profile
 from src.apparmor.generator.generator import AppArmorRuleGenerator
 from src.constants import LOGS_TIME_PATTERN
@@ -34,6 +34,7 @@ class Generator(QObject):
         print(f'exec {self.profile.path}')
         self.parent = parent
         self.start_time = datetime.now().strftime(LOGS_TIME_PATTERN)
+        change_profile_mode(self.profile.path, "complain")
         launch_command_interactive(f"{self.profile.path}; exec bash", parent, lambda : analyze_profile_logs(self.profile.path, self.start_time))
 
     def run_generate(self):
