@@ -1,0 +1,38 @@
+#side_menu_container {
+    background-color: #2C2F33;
+}
+
+#side_menu_widget {
+    background-color: #2C2F33;
+    border-right: 2px solid #3D4147;
+}
+
+QPushButton#menu-btn {
+    background-color: transparent;
+    color: black;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: "Segoe UI", sans-serif;
+    text-align: left;
+}
+
+QPushButton#menu-btn:hover {
+    background-color: #a9a9a9
+}
+
+QPushButton#menu-btn:checked {
+    background-color: #FFFFFF;
+    color: #222;
+    font-weight: bold;
+}
+
+QLabel#profile_info_label {
+    color: white;
+    font-size: 14px;
+}
+
+#line {
+    background-color: black;
+    width: 2px;
+}

@@ -1,0 +1,14 @@
+#include <tunables/global>
+profile curl /usr/bin/curl flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/consoles>
+  #include <abstractions/nameservice>
+
+  capability net_raw,
+  capability setuid,
+  network inet raw,
+  network inet6 raw,
+
+  /{,usr/}bin/{,iputils-}ping mixr,
+  /etc/modules.conf r,
+}

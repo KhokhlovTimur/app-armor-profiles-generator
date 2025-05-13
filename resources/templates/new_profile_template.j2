@@ -1,0 +1,22 @@
+{% for include in tunables %}
+include <{{ include }}>
+{% endfor %}
+
+profile {{ name }} {{ app_path }} {% if flags %} flags=( {% for flag in flags %} {{flag}}, {% endfor %} ) {% endif %} {
+  {% for include in includes %}
+  include <{{ include }}>
+  {% endfor %}
+
+  {% for path in deny_rules %}
+  deny {{ path }} rw,
+  {% endfor %}
+  {% for path in all_rules %}
+  {{ path }},
+  {% endfor %}
+  {% for path, perms in rules %}
+  {{ path }} {{ perms }},
+  {% endfor %}
+ }
+
+
+
