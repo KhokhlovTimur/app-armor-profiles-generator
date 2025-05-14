@@ -10,7 +10,6 @@ while true; do
         eval "$cmd"
     else
         new_cmd="$PREFIX $cmd"
-#        echo "Updated cmd: $new_cmd"
         eval "$new_cmd"
     fi
 done
