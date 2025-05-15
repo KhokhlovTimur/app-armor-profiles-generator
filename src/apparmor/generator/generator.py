@@ -246,24 +246,3 @@ class AppArmorRuleGenerator:
                 result.append(rule)
                 existing_rules.add(clean_rule)
         return result
-
-
-
-gen = AppArmorRuleGenerator()
-abstractions_raw = get_abstractions()
-abstractions_cache_1 = normalize_abstractions_cache(abstractions_raw)
-
-includes, abstractions, rules = gen.generate_rules(
-    apply_tunables=True,
-    apply_abstractions=True,
-    abstractions_cache=abstractions_cache_1
-)
-
-print("Tunables:")
-print("\n".join(includes))
-
-print("\nAbstractions:")
-print("\n".join(abstractions))
-
-print("\nRules:")
-print("\n".join(rules))
