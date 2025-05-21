@@ -13,13 +13,11 @@ from src.util.apparmor_util import extract_profile_path, parse_apparmor_profile
 from src.util.command_executor_util import launch_command_interactive
 from src.util.file_util import join_project_root, save_logs
 
-
 tmp_logs_path = join_project_root("data/", "logs")
 
 class Generator(QObject):
     on_proc_terminated = pyqtSignal()
-
-
+    
     def __init__(self):
         super().__init__()
         self.profile = None
@@ -101,20 +99,15 @@ class Generator(QObject):
             abstractions = [line for line in abstractions_new if line.strip() and f'include <{line.strip()}>' not in existing_lines]
             rules = [line for line in rules_new if line.strip() and line.strip() not in existing_lines]
 
-            print(f"[✓] Добавлено новых: tunables={len(tunables)}, abstractions={len(abstractions)}, rules={len(rules)}")
-
             profile.tunables.extend(tunables)
             profile.includes.extend(abstractions)
             profile.all_rules.extend(rules)
-
-            # self.build_profile(profile.path, tunables, abstractions, rules)
 
             return profile
 
         except Exception as e:
             print(f"[Ошибка] Не удалось обновить профиль: {e}")
             return ""
-
 
 def analyze_profile_logs(profile_path, start_time):
     try:
@@ -124,5 +117,4 @@ def analyze_profile_logs(profile_path, start_time):
             stderr=subprocess.PIPE,
         )
     finally:
-        # dialog.accept()
         pass
